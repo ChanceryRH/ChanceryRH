@@ -1,0 +1,23 @@
+.git
+.env
+.env.*
+.local
+node_modules
+tmp
+coverage
+Telegram Images
+Video
+build
+dist
+website/.git
+website/.openai
+website/.preview
+website/node_modules
+vendor/**/node_modules
+vendor/**/.env*
+vendor/**/runtime
+vendor/**/.data
+contracts/out
+contracts/cache
+*.log
+website

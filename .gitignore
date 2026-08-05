@@ -1,0 +1,16 @@
+node_modules/
+.local/
+contracts/out/
+contracts/cache/
+tmp/
+.DS_Store
+.env
+.env.*
+!.env.example
+/dist/
+coverage/
+*.log
+/build/
+**/.openai/
+**/.preview/
+.gitleaksignore
