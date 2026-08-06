@@ -1,0 +1,167 @@
+{
+  "contractName": "SettlementLog",
+  "compiler": "0.8.30+commit.73712a01.Emscripten.clang",
+  "sourceSha256": "ab104ca790118a90e657d9bf6b0d5979063b6ab247144bd739dfc27363e3a4b1",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "registry_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "officeId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "actorId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "day",
+          "type": "uint64"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint96",
+          "name": "amount",
+          "type": "uint96"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "receiptRoot",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint32",
+          "name": "receiptCount",
+          "type": "uint32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint32",
+          "name": "allowancePeriod",
+          "type": "uint32"
+        }
+      ],
+      "name": "Settled",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "officeId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "actorId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint64",
+          "name": "day",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint96",
+          "name": "amount",
+          "type": "uint96"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "receiptRoot",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint32",
+          "name": "receiptCount",
+          "type": "uint32"
+        },
+        {
+          "internalType": "uint32",
+          "name": "allowancePeriod",
+          "type": "uint32"
+        }
+      ],
+      "name": "record",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "recorded",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "registry",
+      "outputs": [
+        {
+          "internalType": "contract ChanceryRegistry",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x60a034606e57601f6103d138819003918201601f19168301916001600160401b03831184841017607257808492602094604052833981010312606e57516001600160a01b03811690819003606e5760805260405161034a90816100878239608051818181608401526101440152f35b5f80fd5b634e487b7160e01b5f52604160045260245ffdfe6080806040526004361015610012575f80fd5b5f3560e01c90816346383091146100b3575080637b1039991461006f5763d63997901461003d575f80fd5b3461006b57602036600319011261006b576004355f525f602052602060ff60405f2054166040519015158152f35b5f80fd5b3461006b575f36600319011261006b576040517f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03168152602090f35b3461006b5761010036600319011261006b5760043560243590604435926064359067ffffffffffffffff821680920361006b57608435916bffffffffffffffffffffffff831680930361006b5760c4359163ffffffff831680930361006b5760e4359063ffffffff821680920361006b576304d14db960e01b815260048101869052602481018790526020816044817f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03165afa9081156102d3575f91610291575b50336001600160a01b039091160361025c576040516020810190868252876040820152886060820152606081526101b46080826102de565b51902092835f525f60205260ff60405f205416610225577fe03e94014b1f75c0ffccbb97eb5b20dab4f0fa10d844ad2ea27c8bf8e7f7099d9460a0945f525f60205260405f20600160ff19825416179055604051938452602084015260a435604084015260608301526080820152a4005b60405162461bcd60e51b815260206004820152600f60248201526e0c8eae0d8d2c6c2e8ca40c4c2e8c6d608b1b6044820152606490fd5b60405162461bcd60e51b815260206004820152600d60248201526c64656c6567617465206f6e6c7960981b6044820152606490fd5b90506020813d6020116102cb575b816102ac602093836102de565b8101031261006b57516001600160a01b038116810361006b578861017c565b3d915061029f565b6040513d5f823e3d90fd5b90601f8019910116810190811067ffffffffffffffff82111761030057604052565b634e487b7160e01b5f52604160045260245ffdfea26469706673582212207e444ae2d2232bdc2bfcf6025e3cc7917f0862b519d0b2e420ca1f487f8ac69964736f6c634300081e0033",
+  "deployedBytecode": "0x6080806040526004361015610012575f80fd5b5f3560e01c90816346383091146100b3575080637b1039991461006f5763d63997901461003d575f80fd5b3461006b57602036600319011261006b576004355f525f602052602060ff60405f2054166040519015158152f35b5f80fd5b3461006b575f36600319011261006b576040517f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03168152602090f35b3461006b5761010036600319011261006b5760043560243590604435926064359067ffffffffffffffff821680920361006b57608435916bffffffffffffffffffffffff831680930361006b5760c4359163ffffffff831680930361006b5760e4359063ffffffff821680920361006b576304d14db960e01b815260048101869052602481018790526020816044817f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03165afa9081156102d3575f91610291575b50336001600160a01b039091160361025c576040516020810190868252876040820152886060820152606081526101b46080826102de565b51902092835f525f60205260ff60405f205416610225577fe03e94014b1f75c0ffccbb97eb5b20dab4f0fa10d844ad2ea27c8bf8e7f7099d9460a0945f525f60205260405f20600160ff19825416179055604051938452602084015260a435604084015260608301526080820152a4005b60405162461bcd60e51b815260206004820152600f60248201526e0c8eae0d8d2c6c2e8ca40c4c2e8c6d608b1b6044820152606490fd5b60405162461bcd60e51b815260206004820152600d60248201526c64656c6567617465206f6e6c7960981b6044820152606490fd5b90506020813d6020116102cb575b816102ac602093836102de565b8101031261006b57516001600160a01b038116810361006b578861017c565b3d915061029f565b6040513d5f823e3d90fd5b90601f8019910116810190811067ffffffffffffffff82111761030057604052565b634e487b7160e01b5f52604160045260245ffdfea26469706673582212207e444ae2d2232bdc2bfcf6025e3cc7917f0862b519d0b2e420ca1f487f8ac69964736f6c634300081e0033",
+  "immutableReferences": {
+    "52": [
+      {
+        "length": 32,
+        "start": 132
+      },
+      {
+        "length": 32,
+        "start": 324
+      }
+    ]
+  }
+}
