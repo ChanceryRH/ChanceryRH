@@ -41,7 +41,14 @@ export function usdToPico(
     : divideRounded(coefficient, 10n ** BigInt(scale - 12), round);
 }
 
-
+export function picoToUsdString(amount: bigint) {
+  const absolute = amount < 0n ? -amount : amount;
+  const fraction = (absolute % PICO_PER_USD)
+    .toString()
+    .padStart(12, "0")
+    .replace(/0+$/, "");
+  return `${amount < 0n ? "-" : ""}${absolute / PICO_PER_USD}${fraction ? `.${fraction}` : ""}`;
+}
 
 export const picoToUsdg = (amount: bigint, round: Rounding = "ceil") =>
   divideRounded(amount, PICO_PER_USDG_UNIT, round);
