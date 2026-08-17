@@ -107,4 +107,11 @@ export function findHexKey(text: string): SecretHit | null {
   }
   return null;
 }
-
+export function scanSecrets(...text: string[]): SecretHit | null {
+  for (const detector of [findSeedPhrase, findPrivateKey, findHexKey])
+    for (const value of text) {
+      const hit = detector(value);
+      if (hit) return hit;
+    }
+  return null;
+}
