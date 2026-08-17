@@ -56,6 +56,27 @@ function validScalar(bytes: Uint8Array) {
   for (const byte of bytes) scalar = scalar * 256n + BigInt(byte);
   return scalar > 0n && scalar < curveOrder;
 }
-
+export function findPrivateKey(text: string): SecretHit | null {
+  for (const match of text.matchAll(
+    /(?<![1-9A-HJ-NP-Za-km-z])[1-9A-HJ-NP-Za-km-z]{51,116}(?![1-9A-HJ-NP-Za-km-z])/g,
+  )) {
+    const payload = checkedPayload(match[0]);
+    if (!payload) continue;
+    if (
+      (payload[0] === 0x80 || payload[0] === 0xef) &&
+      (payload.length === 33 || (payload.length === 34 && payload[33] === 1)) &&
+      validScalar(payload.subarray(1, 33))
+    )
+      return { kind: "key" };
+    if (
+      /^[xtyzuvYZ]prv/.test(match[0]) &&
+      payload.length === 78 &&
+      payload[45] === 0 &&
+      validScalar(payload.subarray(46))
+    )
+      return { kind: "key" };
+  }
+  return null;
+}
 
 
