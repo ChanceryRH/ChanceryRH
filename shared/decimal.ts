@@ -54,7 +54,15 @@ export const picoToUsdg = (amount: bigint, round: Rounding = "ceil") =>
   divideRounded(amount, PICO_PER_USDG_UNIT, round);
 export const usdgToPico = (units: bigint) => units * PICO_PER_USDG_UNIT;
 
-
+export function mulBps(
+  amount: bigint,
+  bps: number | bigint,
+  round: Rounding = "ceil",
+) {
+  if (typeof bps === "number" && !Number.isSafeInteger(bps))
+    throw new RangeError("Basis points must be an integer.");
+  return divideRounded(amount * BigInt(bps), 10_000n, round);
+}
 
 /** Stable largest-remainder allocation conserves every integer unit. */
 
