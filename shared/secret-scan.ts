@@ -78,5 +78,33 @@ export function findPrivateKey(text: string): SecretHit | null {
   }
   return null;
 }
-
+export function findHexKey(text: string): SecretHit | null {
+  for (const match of text.matchAll(
+    /(?<![0-9A-Za-z])(?:0x)?([0-9a-fA-F]{64})(?![0-9A-Za-z])/g,
+  )) {
+    const scalar = BigInt(`0x${match[1]}`);
+    if (scalar === 0n || scalar >= curveOrder) continue;
+    const before = text
+      .slice(
+        Math.max(text.lastIndexOf("\n", match.index) + 1, match.index - 64),
+        match.index,
+      )
+      .toLowerCase();
+    const keyLabel =
+      /(?:priv(?:ate)?[\s_-]*key|privkey|secret|seed|mnemonic|signer|deployer|wallet[\s_-]*key)/.test(
+        before,
+      );
+    const publicLabel =
+      /hash|\btx(?:n|id)?\b|transaction|sha-?(?:256|3)|keccak|digest|checksum|commit|topic|slot|merkle|root|block|nonce/.test(
+        before,
+      );
+    const path = /\S*\/$/.test(before) || /https?:\/\/\S*$/.test(before);
+    if (
+      keyLabel ||
+      (!publicLabel && !path && new Set(match[1].toLowerCase()).size >= 6)
+    )
+      return { kind: "hex" };
+  }
+  return null;
+}
 
