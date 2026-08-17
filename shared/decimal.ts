@@ -65,4 +65,26 @@ export function mulBps(
 }
 
 /** Stable largest-remainder allocation conserves every integer unit. */
-
+export function allocate(total: bigint, weights: bigint[]) {
+  if (total < 0n || weights.some((weight) => weight < 0n))
+    throw new RangeError("Allocations must be non-negative.");
+  if (!weights.length) {
+    if (total) throw new RangeError("A nonzero total needs a recipient.");
+    return [];
+  }
+  const sum = weights.reduce((a, b) => a + b, 0n);
+  if (!sum) return weights.map((_, index) => (index === 0 ? total : 0n));
+  const result = weights.map((weight) => (total * weight) / sum);
+  const remaining = Number(total - result.reduce((a, b) => a + b, 0n));
+  const ranked = weights
+    .map((weight, index) => ({ index, remainder: (total * weight) % sum }))
+    .sort((a, b) =>
+      a.remainder === b.remainder
+        ? a.index - b.index
+        : a.remainder > b.remainder
+          ? -1
+          : 1,
+    );
+  for (let i = 0; i < remaining; i++) result[ranked[i].index]++;
+  return result;
+}
