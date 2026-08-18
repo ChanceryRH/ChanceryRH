@@ -35,6 +35,66 @@ function encoded(value: unknown, max: number, empty = false): value is string {
   );
 }
 /** Copy validated credential fields so extensions cannot pass arbitrary nested data through. */
-
+export function cleanResponse(
+  value: unknown,
+  kind: "create",
+): RegistrationResponseJSON | null;
+export function cleanResponse(
+  value: unknown,
+  kind: "get",
+): AuthenticationResponseJSON | null;
+export function cleanResponse(
+  value: unknown,
+  kind: "create" | "get",
+): RegistrationResponseJSON | AuthenticationResponseJSON | null {
+  if (
+    !object(value) ||
+    !object(value.response) ||
+    !encoded(value.id, 1400) ||
+    value.rawId !== value.id ||
+    value.type !== "public-key"
+  )
+    return null;
+  const inner = value.response;
+  if (!encoded(inner.clientDataJSON, 8192)) return null;
+  const response: Record<string, any> = {
+    clientDataJSON: inner.clientDataJSON,
+  };
+  const fields =
+    kind === "create"
+      ? { attestationObject: 65536 }
+      : { authenticatorData: 8192, signature: 8192 };
+  for (const [field, limit] of Object.entries(fields)) {
+    if (!encoded(inner[field], limit!)) return null;
+    response[field] = inner[field];
+  }
+  if (kind === "create" && inner.transports !== undefined) {
+    if (
+      !Array.isArray(inner.transports) ||
+      inner.transports.length > 8 ||
+      inner.transports.some(
+        (item) => typeof item !== "string" || item.length > 20,
+      )
+    )
+      return null;
+    response.transports = [...inner.transports];
+  }
+  if (kind === "get" && inner.userHandle != null) {
+    if (!encoded(inner.userHandle, 128, true)) return null;
+    response.userHandle = inner.userHandle;
+  }
+  if (
+    value.clientExtensionResults !== undefined &&
+    !object(value.clientExtensionResults)
+  )
+    return null;
+  return {
+    id: value.id,
+    rawId: value.id,
+    type: "public-key",
+    response,
+    clientExtensionResults: {},
+  } as RegistrationResponseJSON | AuthenticationResponseJSON;
+}
 
 
