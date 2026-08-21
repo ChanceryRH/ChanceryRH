@@ -114,4 +114,13 @@ export function challengeOf(value: unknown): string | null {
     return null;
   }
 }
-
+export function counterRegressed(stored: number, next: number): boolean {
+  if (
+    ![stored, next].every(
+      (value) =>
+        Number.isSafeInteger(value) && value >= 0 && value <= 0xffffffff,
+    )
+  )
+    return true;
+  return (stored !== 0 || next !== 0) && next <= stored;
+}
