@@ -96,5 +96,22 @@ export function cleanResponse(
     clientExtensionResults: {},
   } as RegistrationResponseJSON | AuthenticationResponseJSON;
 }
-
+export function challengeOf(value: unknown): string | null {
+  if (
+    !object(value) ||
+    !object(value.response) ||
+    !encoded(value.response.clientDataJSON, 8192)
+  )
+    return null;
+  try {
+    const client = JSON.parse(
+      Buffer.from(value.response.clientDataJSON, "base64url").toString("utf8"),
+    );
+    return object(client) && encoded(client.challenge, 128)
+      ? client.challenge
+      : null;
+  } catch {
+    return null;
+  }
+}
 
