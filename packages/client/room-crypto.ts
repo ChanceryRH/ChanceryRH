@@ -102,6 +102,23 @@ export async function wrapRoomKey(
     ciphertext: b64(new Uint8Array(ciphertext)),
   };
 }
-
+export async function unwrapRoomKey(
+  wrapped: WrappedKey,
+  privateKey: CryptoKey,
+  officeId: string,
+  roomId: string,
+  epoch: number,
+  deviceId: string,
+) {
+  const aad = context(officeId, roomId, epoch, `device:${deviceId}`),
+    key = await wrappingKey(privateKey, wrapped.ephemeralPublicKey, aad);
+  return new Uint8Array(
+    await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: unb64(wrapped.nonce), additionalData: aad },
+      key,
+      unb64(wrapped.ciphertext),
+    ),
+  );
+}
 
 
