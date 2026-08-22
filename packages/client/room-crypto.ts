@@ -155,4 +155,36 @@ export async function encryptRoomItem(
     ciphertext: b64(new Uint8Array(ciphertext)),
   };
 }
-
+export async function decryptRoomItem(
+  roomKey: Uint8Array,
+  item: {
+    id: string;
+    epoch: number;
+    nonce: string;
+    ciphertext: string;
+    account_id: string;
+  },
+  officeId: string,
+  roomId: string,
+) {
+  const key = await crypto.subtle.importKey(
+      "raw",
+      roomKey as BufferSource,
+      "AES-GCM",
+      false,
+      ["decrypt"],
+    ),
+    aad = context(
+      officeId,
+      roomId,
+      item.epoch,
+      `item:${item.id}:author:${item.account_id}`,
+    );
+  return decoder.decode(
+    await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: unb64(item.nonce), additionalData: aad },
+      key,
+      unb64(item.ciphertext),
+    ),
+  );
+}
