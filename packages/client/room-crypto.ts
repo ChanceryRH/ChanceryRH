@@ -71,7 +71,37 @@ async function wrappingKey(
     ["encrypt", "decrypt"],
   );
 }
-
+export async function wrapRoomKey(
+  roomKey: Uint8Array,
+  recipient: JsonWebKey,
+  officeId: string,
+  roomId: string,
+  epoch: number,
+  deviceId: string,
+): Promise<WrappedKey> {
+  if (roomKey.length !== 32) throw Error("Room key must be 32 bytes.");
+  const ephemeral = await crypto.subtle.generateKey(
+      { name: "ECDH", namedCurve: "P-256" },
+      false,
+      ["deriveBits"],
+    ),
+    aad = context(officeId, roomId, epoch, `device:${deviceId}`),
+    key = await wrappingKey(ephemeral.privateKey, recipient, aad),
+    nonce = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: nonce, additionalData: aad },
+    key,
+    roomKey as BufferSource,
+  );
+  return {
+    ephemeralPublicKey: await crypto.subtle.exportKey(
+      "jwk",
+      ephemeral.publicKey,
+    ),
+    nonce: b64(nonce),
+    ciphertext: b64(new Uint8Array(ciphertext)),
+  };
+}
 
 
 
