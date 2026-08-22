@@ -120,5 +120,39 @@ export async function unwrapRoomKey(
     ),
   );
 }
-
+export async function encryptRoomItem(
+  roomKey: Uint8Array,
+  text: string,
+  officeId: string,
+  roomId: string,
+  epoch: number,
+  itemId: string,
+  accountId: string,
+) {
+  const key = await crypto.subtle.importKey(
+      "raw",
+      roomKey as BufferSource,
+      "AES-GCM",
+      false,
+      ["encrypt"],
+    ),
+    nonce = crypto.getRandomValues(new Uint8Array(12)),
+    aad = context(
+      officeId,
+      roomId,
+      epoch,
+      `item:${itemId}:author:${accountId}`,
+    );
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: nonce, additionalData: aad },
+    key,
+    encoder.encode(text),
+  );
+  return {
+    id: itemId,
+    epoch,
+    nonce: b64(nonce),
+    ciphertext: b64(new Uint8Array(ciphertext)),
+  };
+}
 
