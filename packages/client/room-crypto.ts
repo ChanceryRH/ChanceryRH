@@ -35,7 +35,9 @@ export async function createDevice() {
     publicKey: await crypto.subtle.exportKey("jwk", pair.publicKey),
   };
 }
-
+export async function createRoomKey() {
+  return crypto.getRandomValues(new Uint8Array(32));
+}
 async function wrappingKey(
   privateKey: CryptoKey,
   publicKey: JsonWebKey,
