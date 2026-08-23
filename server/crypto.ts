@@ -105,7 +105,24 @@ export async function createCrypto(cfg: Config, db: Database) {
         body.toString("base64url"),
       ].join(".");
     },
-    
+    open(officeId: string, context: string, value: string): any {
+      const [v, iv, tag, body] = value.split(".");
+      if (v !== "v1" || !iv || !tag || body === undefined)
+        throw Error("Invalid encrypted record.");
+      const d = createDecipheriv(
+        "aes-256-gcm",
+        storageKey,
+        Buffer.from(iv, "base64url"),
+      );
+      d.setAAD(Buffer.from(`chancery:v1:${officeId}:${context}`));
+      d.setAuthTag(Buffer.from(tag, "base64url"));
+      return JSON.parse(
+        Buffer.concat([
+          d.update(Buffer.from(body, "base64url")),
+          d.final(),
+        ]).toString("utf8"),
+      );
+    },
     
     
   };
