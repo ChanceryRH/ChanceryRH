@@ -90,7 +90,21 @@ export async function createCrypto(cfg: Config, db: Database) {
   return {
     keyId,
     publicKey: publicKey.export({ format: "jwk" }),
-    
+    seal(officeId: string, context: string, value: unknown) {
+      const iv = randomBytes(12),
+        c = createCipheriv("aes-256-gcm", storageKey, iv);
+      c.setAAD(Buffer.from(`chancery:v1:${officeId}:${context}`));
+      const body = Buffer.concat([
+        c.update(canonicalJson(value), "utf8"),
+        c.final(),
+      ]);
+      return [
+        "v1",
+        iv.toString("base64url"),
+        c.getAuthTag().toString("base64url"),
+        body.toString("base64url"),
+      ].join(".");
+    },
     
     
     
