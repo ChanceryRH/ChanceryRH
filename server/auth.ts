@@ -173,7 +173,13 @@ export function registerAuth(
       csrfToken: csrf,
     });
   });
-  
+  app.post("/api/auth/logout", authenticated, csrf, async (req, res) => {
+    await db.query("DELETE FROM auth_sessions WHERE token_hash=$1", [
+      hash(req.cookies[cookie]),
+    ]);
+    res.clearCookie(cookie, cookieOptions);
+    res.status(204).end();
+  });
   
   
   
