@@ -158,7 +158,21 @@ export function registerAuth(
     );
     return record;
   }
-  
+  app.get("/api/auth/session", authenticated, async (req, res) => {
+    const csrf = uid();
+    await db.query(
+      "UPDATE auth_sessions SET csrf_hash=$1 WHERE token_hash=$2",
+      [hash(csrf), hash(req.cookies[cookie])],
+    );
+    res.json({
+      account: {
+        id: req.account!.id,
+        wallet: req.account!.wallet,
+        credential: req.account!.credential,
+      },
+      csrfToken: csrf,
+    });
+  });
   
   
   
