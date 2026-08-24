@@ -136,7 +136,33 @@ export async function createCrypto(cfg: Config, db: Database) {
         ).toString("base64"),
       };
     },
-    
+    async verify(envelope: SignedEnvelope) {
+      if (
+        envelope?.version !== 1 ||
+        envelope.algorithm !== "Ed25519" ||
+        typeof envelope.signature !== "string"
+      )
+        return false;
+      const [key] = await db.query(
+        "SELECT public_key FROM receipt_keys WHERE id=$1",
+        [envelope.key_id],
+      );
+      if (!key) return false;
+      try {
+        return verify(
+          null,
+          Buffer.from(canonicalJson(envelope.payload)),
+          createPublicKey({
+            key: Buffer.from(key.public_key, "base64"),
+            type: "spki",
+            format: "der",
+          }),
+          Buffer.from(envelope.signature, "base64"),
+        );
+      } catch {
+        return false;
+      }
+    },
   };
 }
 export type CryptoService = Awaited<ReturnType<typeof createCrypto>>;
