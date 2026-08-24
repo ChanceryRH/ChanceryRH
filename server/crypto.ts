@@ -123,7 +123,19 @@ export async function createCrypto(cfg: Config, db: Database) {
         ]).toString("utf8"),
       );
     },
-    
+    sign(payload: unknown): SignedEnvelope {
+      return {
+        version: 1,
+        key_id: keyId,
+        algorithm: "Ed25519",
+        payload,
+        signature: sign(
+          null,
+          Buffer.from(canonicalJson(payload)),
+          privateKey,
+        ).toString("base64"),
+      };
+    },
     
   };
 }
