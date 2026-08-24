@@ -201,7 +201,34 @@ export function registerAuth(
     });
     res.json({ challengeId, message, expiresAt: expires.toISOString() });
   });
-  
+  app.post("/api/auth/wallet/verify", async (req, res) => {
+    const record = await consume(req, "wallet");
+    const signature = req.body?.signature;
+    assert(
+      typeof signature === "string" &&
+        /^0x[0-9a-f]+$/i.test(signature) &&
+        signature.length <= 8194,
+      400,
+      "signature_invalid",
+      "Invalid wallet signature.",
+    );
+    assert(
+      await verifyWallet(
+        record.payload.wallet,
+        record.payload.message,
+        signature as Hex,
+      ),
+      401,
+      "signature_invalid",
+      "Wallet signature could not be verified.",
+    );
+    const wallet = record.payload.wallet;
+    const [account] = await db.query<Account>(
+      "INSERT INTO accounts(id,wallet,credential,handle) VALUES($1,$2,$3,$4) ON CONFLICT(wallet) DO UPDATE SET wallet=excluded.wallet RETURNING *",
+      [uid("account_"), wallet, `wallet:${wallet}`, newHandle()],
+    );
+    await issueSession(res, account);
+  });
   
   
   
