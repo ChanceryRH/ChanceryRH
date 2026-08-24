@@ -180,7 +180,27 @@ export function registerAuth(
     res.clearCookie(cookie, cookieOptions);
     res.status(204).end();
   });
-  
+  app.post("/api/auth/wallet/challenge", async (req, res) => {
+    let wallet: Address;
+    try {
+      wallet = getAddress(req.body?.address);
+    } catch {
+      throw new ApiError(
+        400,
+        "address_invalid",
+        "Enter a valid wallet address.",
+      );
+    }
+    const nonce = uid(),
+      issued = new Date(),
+      expires = new Date(issued.getTime() + 300000);
+    const message = `${new URL(cfg.origin).host} wants you to sign in with your Ethereum account:\n${wallet}\n\nSign in to Chancery. This signature does not authorize a payment.\n\nURI: ${cfg.origin}\nVersion: 1\nChain ID: 4663\nNonce: ${nonce}\nIssued At: ${issued.toISOString()}\nExpiration Time: ${expires.toISOString()}`;
+    const challengeId = await challenge(req, res, "wallet", {
+      wallet: wallet.toLowerCase(),
+      message,
+    });
+    res.json({ challengeId, message, expiresAt: expires.toISOString() });
+  });
   
   
   
