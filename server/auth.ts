@@ -322,7 +322,22 @@ export function registerAuth(
     });
     await issueSession(res, account);
   });
-  
+  app.post("/api/auth/passkey/login/options", async (req, res) => {
+    assert(
+      passkeysAvailable({ origin: cfg.origin }),
+      503,
+      "passkeys_unavailable",
+      "Passkeys require a secure domain.",
+    );
+    const options = await generateAuthenticationOptions({
+      rpID: new URL(cfg.origin).hostname,
+      userVerification: "required",
+    });
+    const challengeId = await challenge(req, res, "passkey_login", {
+      challenge: options.challenge,
+    });
+    res.json({ challengeId, options });
+  });
   
   return { authenticated, csrf };
 }
