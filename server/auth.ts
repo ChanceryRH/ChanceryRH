@@ -338,6 +338,83 @@ export function registerAuth(
     });
     res.json({ challengeId, options });
   });
-  
+  app.post("/api/auth/passkey/login/verify", async (req, res) => {
+    const record = await consume(req, "passkey_login"),
+      response = cleanResponse(req.body?.response, "get");
+    assert(
+      response && challengeOf(response) === record.payload.challenge,
+      400,
+      "passkey_invalid",
+      "Passkey response is invalid.",
+    );
+    let account: Account;
+    try {
+      account = await db.transaction(async (q) => {
+        const [key] = await q.query(
+          "SELECT p.*,a.handle,a.credential,a.wallet FROM passkeys p JOIN accounts a ON a.id=p.account_id WHERE p.id=$1 FOR UPDATE OF p",
+          [response.id],
+        );
+        assert(
+          key &&
+            (!key.locked_until ||
+              new Date(key.locked_until).getTime() < Date.now()),
+          401,
+          "passkey_invalid",
+          "Passkey could not be verified.",
+        );
+        assert(
+          !response.response.userHandle ||
+            response.response.userHandle === key.handle,
+          401,
+          "passkey_invalid",
+          "Passkey account did not match.",
+        );
+        const result = await verifyAuthenticationResponse({
+          response,
+          expectedChallenge: record.payload.challenge,
+          expectedOrigin: cfg.origin,
+          expectedRPID: new URL(cfg.origin).hostname,
+          requireUserVerification: true,
+          credential: {
+            id: key.id,
+            publicKey: Buffer.from(key.public_key, "base64"),
+            counter: Number(key.counter),
+            transports: key.transports,
+          },
+        });
+        assert(
+          result.verified &&
+            !counterRegressed(
+              Number(key.counter),
+              result.authenticationInfo.newCounter,
+            ),
+          401,
+          "passkey_invalid",
+          "Passkey could not be verified.",
+        );
+        await q.query(
+          "UPDATE passkeys SET counter=$1,failures=0,locked_until=NULL WHERE id=$2",
+          [result.authenticationInfo.newCounter, key.id],
+        );
+        return {
+          id: key.account_id,
+          wallet: key.wallet,
+          credential: key.credential,
+          handle: key.handle,
+        };
+      });
+    } catch {
+      await db.query(
+        "UPDATE passkeys SET failures=failures+1,locked_until=CASE WHEN failures>=4 THEN now()+interval '15 minutes' ELSE locked_until END WHERE id=$1",
+        [response.id],
+      );
+      throw new ApiError(
+        401,
+        "passkey_invalid",
+        "Passkey could not be verified. Try again later.",
+      );
+    }
+    await issueSession(res, account);
+  });
   return { authenticated, csrf };
 }
