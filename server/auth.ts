@@ -264,7 +264,64 @@ export function registerAuth(
     });
     res.json({ challengeId, options });
   });
-  
+  app.post("/api/auth/passkey/register/verify", async (req, res) => {
+    const record = await consume(req, "passkey_register"),
+      response = cleanResponse(req.body?.response, "create");
+    assert(
+      response && challengeOf(response) === record.payload.challenge,
+      400,
+      "passkey_invalid",
+      "Passkey response is invalid.",
+    );
+    let result;
+    try {
+      result = await verifyRegistrationResponse({
+        response,
+        expectedChallenge: record.payload.challenge,
+        expectedOrigin: cfg.origin,
+        expectedRPID: new URL(cfg.origin).hostname,
+        requireUserVerification: true,
+      });
+    } catch {
+      throw new ApiError(
+        401,
+        "passkey_invalid",
+        "Passkey could not be verified.",
+      );
+    }
+    assert(
+      result.verified && result.registrationInfo,
+      401,
+      "passkey_invalid",
+      "Passkey could not be verified.",
+    );
+    const info = result.registrationInfo,
+      credential = info.credential;
+    const account = await db.transaction(async (q) => {
+      const [a] = await q.query<Account>(
+        "INSERT INTO accounts(id,credential,handle) VALUES($1,$2,$3) RETURNING *",
+        [
+          record.payload.accountId,
+          `passkey:${hash(credential.publicKey)}`,
+          record.payload.handle,
+        ],
+      );
+      await q.query(
+        "INSERT INTO passkeys(id,account_id,public_key,counter,transports,backed_up,name) VALUES($1,$2,$3,$4,$5,$6,$7)",
+        [
+          credential.id,
+          a.id,
+          Buffer.from(credential.publicKey).toString("base64"),
+          credential.counter,
+          JSON.stringify(credential.transports || []),
+          info.credentialBackedUp,
+          "Passkey",
+        ],
+      );
+      return a;
+    });
+    await issueSession(res, account);
+  });
   
   
   return { authenticated, csrf };
