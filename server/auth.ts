@@ -229,7 +229,41 @@ export function registerAuth(
     );
     await issueSession(res, account);
   });
-  
+  app.post("/api/auth/passkey/register/options", async (req, res) => {
+    assert(
+      passkeysAvailable({ origin: cfg.origin }),
+      503,
+      "passkeys_unavailable",
+      "Passkeys require a domain over HTTPS or localhost.",
+    );
+    assert(
+      !req.account,
+      409,
+      "already_signed_in",
+      "Sign out before creating a separate passkey account.",
+    );
+    const accountId = uid("account_"),
+      handle = newHandle();
+    const options = await generateRegistrationOptions({
+      rpName: "Chancery",
+      rpID: new URL(cfg.origin).hostname,
+      userName: "Chancery member",
+      userDisplayName: "Chancery member",
+      userID: Buffer.from(handle, "base64url"),
+      attestationType: "none",
+      supportedAlgorithmIDs: [-8, -7, -257],
+      authenticatorSelection: {
+        residentKey: "required",
+        userVerification: "required",
+      },
+    });
+    const challengeId = await challenge(req, res, "passkey_register", {
+      challenge: options.challenge,
+      accountId,
+      handle,
+    });
+    res.json({ challengeId, options });
+  });
   
   
   
