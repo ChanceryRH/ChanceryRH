@@ -467,7 +467,41 @@ export function createChain(cfg: Config) {
     ) {
       return encodeSafeExecution(tx, signatures);
     },
-    
+    async confirmedSafeTransaction(
+      txHash: Hex,
+      safeAddress: Address,
+      safeTxHash: Hex,
+    ) {
+      const receipt = await client.getTransactionReceipt({ hash: txHash });
+      if (
+        receipt.status !== "success" ||
+        receipt.to?.toLowerCase() !== safeAddress.toLowerCase()
+      )
+        return false;
+      if (
+        (await client.getBlockNumber({ cacheTime: 0 })) <
+        receipt.blockNumber + 1n
+      )
+        return false;
+      return receipt.logs.some((log) => {
+        if (log.address.toLowerCase() !== safeAddress.toLowerCase())
+          return false;
+        try {
+          const event = decodeEventLog({
+            abi: safeAbi,
+            data: log.data,
+            topics: log.topics,
+          });
+          return (
+            event.eventName === "ExecutionSuccess" &&
+            (event.args as any).txHash.toLowerCase() ===
+              safeTxHash.toLowerCase()
+          );
+        } catch {
+          return false;
+        }
+      });
+    },
     
     
     
