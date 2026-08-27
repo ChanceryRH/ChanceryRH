@@ -438,7 +438,14 @@ export function createChain(cfg: Config) {
         settlementLog: log as Address,
       };
     },
-    
+    async delegateFor(safeAddress: Address, actorId: Hex = ZERO) {
+      return client.readContract({
+        address: registry(),
+        abi: registryAbi,
+        functionName: "delegateAddress",
+        args: [safeAddress, actorId],
+      });
+    },
     
     
     
