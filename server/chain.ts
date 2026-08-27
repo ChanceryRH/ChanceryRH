@@ -502,7 +502,34 @@ export function createChain(cfg: Config) {
         }
       });
     },
-    
+    async simulateCall(safeAddress: Address, call: Call) {
+      try {
+        const result = await client.call({
+          account: safeAddress,
+          to: call.to,
+          data: call.data,
+          value: BigInt(call.value || "0"),
+        });
+        return {
+          success: true,
+          returnData: result.data || "0x",
+          method: "eth_call",
+          stateDiff: null,
+          limitations: [
+            "Simulation uses current chain state and cannot guarantee future execution.",
+            "This RPC response does not include a state diff.",
+          ],
+        };
+      } catch {
+        return {
+          success: false,
+          returnData: null,
+          method: "eth_call",
+          stateDiff: null,
+          limitations: ["The call reverted or the RPC could not simulate it."],
+        };
+      }
+    },
     
     
     
