@@ -361,7 +361,16 @@ export function createChain(cfg: Config) {
     safe,
     snapshot,
     prepare,
-    
+    async verifyWallet(address: Address, message: string, signature: Hex) {
+      if (
+        await verifyMessage({ address, message, signature }).catch(() => false)
+      )
+        return true;
+      if ((await client.getChainId()) !== 4663) return false;
+      return client
+        .verifyMessage({ address, message, signature })
+        .catch(() => false);
+    },
     
     
     
