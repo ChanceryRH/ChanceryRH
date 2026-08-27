@@ -461,7 +461,12 @@ export function createChain(cfg: Config) {
         })
       ).toLowerCase() as Address;
     },
-    
+    execution(
+      tx: SafeTransaction,
+      signatures: { owner: string; signature: Hex }[],
+    ) {
+      return encodeSafeExecution(tx, signatures);
+    },
     
     
     
