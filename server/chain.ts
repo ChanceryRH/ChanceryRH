@@ -446,7 +446,21 @@ export function createChain(cfg: Config) {
         args: [safeAddress, actorId],
       });
     },
-    
+    async ownerOfSignature(
+      safeAddress: Address,
+      tx: SafeTransaction,
+      signature: Hex,
+    ) {
+      return (
+        await recoverTypedDataAddress({
+          domain: { chainId: 4663, verifyingContract: safeAddress },
+          types: safeTypedTypes,
+          primaryType: "SafeTx",
+          message: typedSafeMessage(tx),
+          signature,
+        })
+      ).toLowerCase() as Address;
+    },
     
     
     
