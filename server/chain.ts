@@ -371,7 +371,73 @@ export function createChain(cfg: Config) {
         .verifyMessage({ address, message, signature })
         .catch(() => false);
     },
-    
+    async configuration() {
+      const r = registry();
+      const [
+        chainId,
+        code,
+        token,
+        module,
+        treasury,
+        operator,
+        administrator,
+        log,
+      ] = await Promise.all([
+        client.getChainId(),
+        client.getCode({ address: r }),
+        ...(
+          [
+            "token",
+            "allowanceModule",
+            "treasury",
+            "operator",
+            "administrator",
+            "settlementLog",
+          ] as const
+        ).map((functionName) =>
+          client.readContract({ address: r, abi: registryAbi, functionName }),
+        ),
+      ]);
+      assert(
+        chainId === 4663 && code && code !== "0x",
+        503,
+        "registry_invalid",
+        "Registry is not deployed on Robinhood Chain mainnet.",
+      );
+      assert(
+        await verifyRegistryRuntime(code as Hex),
+        503,
+        "registry_bytecode_mismatch",
+        "Registry runtime does not match this backend release.",
+      );
+      const moduleCode = await client.getCode({
+        address: ADDRESSES.allowanceModule,
+      });
+      assert(
+        moduleCode &&
+          keccak256(moduleCode) ===
+            "0x7aa63affdca06fe94576f00077ad61a02ccf203a5da31e1b4ed595df7b65cf3e",
+        503,
+        "module_bytecode_mismatch",
+        "Allowance Module runtime does not match the verified deployment.",
+      );
+      assert(
+        (token as string).toLowerCase() === ADDRESSES.usdg.toLowerCase() &&
+          (module as string).toLowerCase() ===
+            ADDRESSES.allowanceModule.toLowerCase(),
+        503,
+        "registry_invalid",
+        "Registry token or Allowance Module does not match the verified mainnet configuration.",
+      );
+      return {
+        chainId,
+        registry: r,
+        treasury: treasury as Address,
+        operator: operator as Address,
+        administrator: administrator as Address,
+        settlementLog: log as Address,
+      };
+    },
     
     
     
