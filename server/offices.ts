@@ -957,7 +957,26 @@ export function createOffices(
         ),
       );
     },
-    
+    async changePolicy(a: Access, body: unknown) {
+      const policy = policySchema.parse(body);
+      cap(policy.maxRequestUsd, "20");
+      const h = policyHash(policy);
+      return propose(
+        a,
+        "policy",
+        [
+          {
+            to: cfg.registry!,
+            data: encodeFunctionData({
+              abi: registryAbi,
+              functionName: "setPolicy",
+              args: [a.office.id, h],
+            }),
+          },
+        ],
+        { policy, policyHash: h },
+      );
+    },
     
     
   };
