@@ -944,7 +944,19 @@ export function createOffices(
         ),
       );
     },
-    
+    async queue(a: Access) {
+      assert(
+        a.role === "principal",
+        403,
+        "principal_required",
+        "A Principal must view Safe proposals.",
+      );
+      return db.office(a.office.id, (q) =>
+        q.query(
+          "SELECT id,kind,status,safe_tx_hash,nonce,created_at FROM office_proposals ORDER BY created_at DESC LIMIT 100",
+        ),
+      );
+    },
     
     
     
