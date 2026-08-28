@@ -931,7 +931,19 @@ export function createOffices(
     execution,
     confirm,
     cap,
-    
+    async seats(a: Access) {
+      assert(
+        ["principal", "officer"].includes(a.role),
+        403,
+        "role_required",
+        "An Officer or Principal must view seats.",
+      );
+      return db.office(a.office.id, (q) =>
+        q.query(
+          "SELECT id,account_id,credential,role,monthly_cap_pico,expires_at,status,revoked_at FROM seats ORDER BY created_at",
+        ),
+      );
+    },
     
     
     
