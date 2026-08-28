@@ -589,7 +589,35 @@ export function createChain(cfg: Config) {
       const gas = await client.estimateGas({ account, to, data });
       return wallet.sendTransaction({ to, data, gas: gas + gas / 5n });
     },
-    
+    async prepareSubmission(to: Address, data: Hex) {
+      assert(
+        /^0x[0-9a-f]{64}$/i.test(cfg.settlerKey),
+        503,
+        "settler_unconfigured",
+        "Configure the settlement operator key.",
+      );
+      const account = privateKeyToAccount(cfg.settlerKey as Hex),
+        network = await this.configuration();
+      assert(
+        account.address.toLowerCase() === network.operator.toLowerCase(),
+        503,
+        "settler_wrong_key",
+        "Settlement key does not match the onchain operator.",
+      );
+      const wallet = createWalletClient({
+        chain: RHC,
+        transport: http(cfg.rpc, { timeout: 15000, retryCount: 0 }),
+        account,
+      });
+      const gas = await client.estimateGas({ account, to, data });
+      const request = await wallet.prepareTransactionRequest({
+        to,
+        data,
+        gas: gas + gas / 5n,
+      });
+      const raw = await wallet.signTransaction(request);
+      return { raw, hash: keccak256(raw) };
+    },
     async broadcast(raw: Hex) {
       return client.sendRawTransaction({ serializedTransaction: raw });
     },
