@@ -530,7 +530,34 @@ export function createChain(cfg: Config) {
         };
       }
     },
-    
+    async tokenBalance(safeAddress: Address) {
+      assert(
+        cfg.tokenAddress,
+        503,
+        "token_unconfigured",
+        "The token contract has not been configured.",
+      );
+      const [balance, decimals] = await Promise.all([
+        client.readContract({
+          address: cfg.tokenAddress,
+          abi: tokenAbi,
+          functionName: "balanceOf",
+          args: [safeAddress],
+        }),
+        client.readContract({
+          address: cfg.tokenAddress,
+          abi: tokenAbi,
+          functionName: "decimals",
+        }),
+      ]);
+      assert(
+        decimals <= 36,
+        503,
+        "token_invalid",
+        "Token decimals exceed the supported range.",
+      );
+      return { balance, decimals };
+    },
     
     
     
