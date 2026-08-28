@@ -907,7 +907,22 @@ export function createOffices(
     get,
     propose,
     reopenProposal,
-    
+    async refreshProposal(a: Access, id: string) {
+      const p = await proposal(a, id);
+      assert(
+        p.status === "pending" && Array.isArray(p.payload.calls),
+        409,
+        "proposal_unavailable",
+        "This proposal cannot be refreshed.",
+      );
+      const fresh = await propose(a, p.kind, p.payload.calls, p.payload);
+      await db.office(a.office.id, (q) =>
+        q.query("UPDATE office_proposals SET status='superseded' WHERE id=$1", [
+          id,
+        ]),
+      );
+      return fresh;
+    },
     changeSeats,
     invite,
     claim,
