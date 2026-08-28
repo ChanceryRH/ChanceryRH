@@ -558,7 +558,14 @@ export function createChain(cfg: Config) {
       );
       return { balance, decimals };
     },
-    
+    async settled(delegate: Address, batchId: Hex) {
+      return client.readContract({
+        address: delegate,
+        abi: delegateAbi,
+        functionName: "settled",
+        args: [batchId],
+      });
+    },
     
     
     async broadcast(raw: Hex) {
