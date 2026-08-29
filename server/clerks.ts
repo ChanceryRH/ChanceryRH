@@ -297,7 +297,14 @@ export function createClerks(
     load,
     prepare,
     run,
-    
+    async list(a: Access) {
+      officer(a);
+      return db.office(a.office.id, (q) =>
+        q.query(
+          "SELECT id,name,delegate,monthly_cap_pico,rulebook,model,status,schedule_minutes,next_run_at FROM clerks ORDER BY created_at",
+        ),
+      );
+    },
     
     
     
