@@ -341,7 +341,14 @@ export function createRooms(db: Database, crypto: CryptoService) {
     rotate,
     keys,
     post,
-    
+    async list(a: Access) {
+      return db.office(a.office.id, (q) =>
+        q.query(
+          "SELECT r.* FROM rooms r JOIN room_members m ON m.room_id=r.id WHERE m.account_id=$1 AND m.removed_at IS NULL AND (m.expires_at IS NULL OR m.expires_at>now())",
+          [a.account.id],
+        ),
+      );
+    },
     
     
   };
