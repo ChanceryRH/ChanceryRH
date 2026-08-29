@@ -1010,6 +1010,22 @@ export function createOffices(
         { capUsd: picoToUsdString(usdgToPico(amount)) },
       );
     },
-    
+    async close(a: Access) {
+      return propose(
+        a,
+        "close",
+        [
+          {
+            to: cfg.registry!,
+            data: encodeFunctionData({
+              abi: registryAbi,
+              functionName: "close",
+              args: [a.office.id],
+            }),
+          },
+        ],
+        { permanent: true },
+      );
+    },
   };
 }
