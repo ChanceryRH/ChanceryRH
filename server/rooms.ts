@@ -358,6 +358,19 @@ export function createRooms(db: Database, crypto: CryptoService) {
         );
       });
     },
-    
+    async revokeDevice(a: Access, id: string) {
+      await db.office(a.office.id, async (q) => {
+        const [d] = await q.query(
+          "UPDATE devices SET revoked_at=now() WHERE id=$1 AND account_id=$2 RETURNING id",
+          [id, a.account.id],
+        );
+        assert(d, 404, "device_not_found", "Device not found.");
+        await q.query(
+          "UPDATE rooms SET rotation_required=true WHERE id IN(SELECT room_id FROM room_members WHERE account_id=$1 AND removed_at IS NULL)",
+          [a.account.id],
+        );
+      });
+      return { revoked: true };
+    },
   };
 }
