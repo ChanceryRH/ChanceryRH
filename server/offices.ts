@@ -977,7 +977,39 @@ export function createOffices(
         { policy, policyHash: h },
       );
     },
-    
+    async changeCap(a: Access, value: unknown) {
+      assert(a.snapshot, 409, "office_pending", "Open the Office first.");
+      const amount = picoToUsdg(cap(value));
+      return propose(
+        a,
+        "cap",
+        [
+          {
+            to: cfg.registry!,
+            data: encodeFunctionData({
+              abi: registryAbi,
+              functionName: "setCap",
+              args: [a.office.id, amount],
+            }),
+          },
+          {
+            to: ADDRESSES.allowanceModule,
+            data: encodeFunctionData({
+              abi: allowanceAbi,
+              functionName: "setAllowance",
+              args: [
+                a.office.delegate,
+                ADDRESSES.usdg,
+                amount,
+                43200,
+                a.snapshot.periodStart,
+              ],
+            }),
+          },
+        ],
+        { capUsd: picoToUsdString(usdgToPico(amount)) },
+      );
+    },
     
   };
 }
