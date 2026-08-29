@@ -305,7 +305,13 @@ export function createClerks(
         ),
       );
     },
-    
+    async pause(a: Access, id: string) {
+      await load(a, id);
+      await db.office(a.office.id, (q) =>
+        q.query("UPDATE clerks SET status='paused' WHERE id=$1", [id]),
+      );
+      return { status: "paused" };
+    },
     
     
     
