@@ -349,7 +349,15 @@ export function createRooms(db: Database, crypto: CryptoService) {
         ),
       );
     },
-    
+    async items(a: Access, id: string) {
+      return db.office(a.office.id, async (q) => {
+        await membership(q, a, id);
+        return q.query(
+          "SELECT id,epoch,account_id,ciphertext,nonce,created_at FROM room_items WHERE room_id=$1 AND expires_at>now() ORDER BY created_at DESC LIMIT 200",
+          [id],
+        );
+      });
+    },
     
   };
 }
