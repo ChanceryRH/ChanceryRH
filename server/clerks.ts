@@ -312,7 +312,29 @@ export function createClerks(
       );
       return { status: "paused" };
     },
-    
+    async resume(a: Access, id: string) {
+      assert(
+        a.role === "principal",
+        403,
+        "principal_required",
+        "A Principal must resume a Clerk.",
+      );
+      const clerk = await load(a, id),
+        s = await chain.snapshot(a.office.id, clerkActor(id));
+      assert(
+        s.active && s.actorActive && clerk.status === "paused",
+        409,
+        "clerk_inactive",
+        "Restore the onchain Clerk allowance before resuming.",
+      );
+      await db.office(a.office.id, (q) =>
+        q.query(
+          "UPDATE clerks SET status='active',next_run_at=now() WHERE id=$1",
+          [id],
+        ),
+      );
+      return { status: "active" };
+    },
     
     
     
