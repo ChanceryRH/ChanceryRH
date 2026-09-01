@@ -335,7 +335,33 @@ export function createClerks(
       );
       return { status: "active" };
     },
-    
+    async revoke(a: Access, id: string) {
+      await load(a, id);
+      assert(
+        a.role === "principal",
+        403,
+        "principal_required",
+        "A Principal must revoke the onchain Clerk.",
+      );
+      await db.office(a.office.id, (q) =>
+        q.query("UPDATE clerks SET status='paused' WHERE id=$1", [id]),
+      );
+      return offices.propose(
+        a,
+        "clerk_revoke",
+        [
+          {
+            to: cfg.registry!,
+            data: encodeFunctionData({
+              abi: registryAbi,
+              functionName: "setClerk",
+              args: [a.office.id, clerkActor(id), false],
+            }),
+          },
+        ],
+        { clerkId: id },
+      );
+    },
     
     
   };
