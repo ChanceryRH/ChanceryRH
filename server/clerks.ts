@@ -376,7 +376,23 @@ export function createClerks(
         })),
       );
     },
-    
+    async decide(a: Access, id: string, body: unknown) {
+      officer(a);
+      const input = z.strictObject({ approve: z.boolean() }).parse(body);
+      const [row] = await db.office(a.office.id, (q) =>
+        q.query(
+          "UPDATE approvals SET status=$1,decided_by=$2 WHERE id=$3 AND status='pending' AND expires_at>now() RETURNING id,status",
+          [input.approve ? "approved" : "denied", a.account.id, id],
+        ),
+      );
+      assert(
+        row,
+        409,
+        "approval_unavailable",
+        "Approval expired or was already decided.",
+      );
+      return row;
+    },
   };
 }
 export type Clerks = ReturnType<typeof createClerks>;
