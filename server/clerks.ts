@@ -362,7 +362,20 @@ export function createClerks(
         { clerkId: id },
       );
     },
-    
+    async approvals(a: Access) {
+      officer(a);
+      return db.office(a.office.id, async (q) =>
+        (
+          await q.query(
+            "SELECT * FROM approvals ORDER BY created_at DESC LIMIT 200",
+          )
+        ).map((row) => ({
+          ...row,
+          request_enc: undefined,
+          chat: crypto.open(a.office.id, `approval:${row.id}`, row.request_enc),
+        })),
+      );
+    },
     
   };
 }
