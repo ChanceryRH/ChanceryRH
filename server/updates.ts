@@ -154,7 +154,27 @@ export function createUpdates(
       );
       return { id, bodyHash, envelope, anchorStatus: "pending" };
     },
-    
+    async listMinutes(a: Access) {
+      assert(
+        a.role !== "guest",
+        403,
+        "role_required",
+        "Guests cannot view Office Minutes.",
+      );
+      return db.office(a.office.id, async (q) =>
+        (
+          await q.query(
+            "SELECT * FROM minutes ORDER BY created_at DESC LIMIT 100",
+          )
+        ).map((m) => ({
+          id: m.id,
+          body: crypto.open(a.office.id, `minutes:${m.id}`, m.body_enc),
+          bodyHash: m.body_hash,
+          envelope: m.envelope,
+          transactionHash: m.tx_hash,
+        })),
+      );
+    },
     
   };
 }
