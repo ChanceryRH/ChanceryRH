@@ -111,7 +111,49 @@ export function createUpdates(
         requiresHumanSignatures: true,
       });
     },
-    
+    async minutes(a: Access, body: unknown) {
+      assert(
+        ["principal", "officer"].includes(a.role),
+        403,
+        "officer_required",
+        "An Officer or Principal must issue Minutes.",
+      );
+      offices.work(a);
+      const input = z
+          .strictObject({ body: z.string().min(1).max(100000) })
+          .parse(body),
+        guard = checkGuards(input.body);
+      assert(
+        !guard,
+        400,
+        "secret_detected",
+        guard?.message || "Secret detected.",
+      );
+      const id = uid("minutes_"),
+        bodyHash = keccak256(toBytes(input.body)),
+        envelope = crypto.sign({
+          type: "minutes",
+          id,
+          officeId: a.office.id,
+          bodyHash,
+          createdBy: a.account.credential,
+          issuedAt: new Date().toISOString(),
+        });
+      await db.office(a.office.id, (q) =>
+        q.query(
+          "INSERT INTO minutes(id,office_id,body_enc,body_hash,envelope,created_by) VALUES($1,$2,$3,$4,$5,$6)",
+          [
+            id,
+            a.office.id,
+            crypto.seal(a.office.id, `minutes:${id}`, input.body),
+            bodyHash,
+            JSON.stringify(envelope),
+            a.account.id,
+          ],
+        ),
+      );
+      return { id, bodyHash, envelope, anchorStatus: "pending" };
+    },
     
     
   };
