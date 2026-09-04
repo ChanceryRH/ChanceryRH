@@ -42,7 +42,75 @@ export function createUpdates(
   }
   return {
     benefits,
-    
+    async draft(a: Access, clerkId: string, body: unknown) {
+      const clerk = await clerks.load(a, clerkId);
+      assert(
+        clerk.status === "active",
+        409,
+        "clerk_inactive",
+        "This Clerk is not active.",
+      );
+      const input = z
+        .strictObject({
+          to: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+          data: z
+            .string()
+            .regex(/^0x([0-9a-fA-F]{2})*$/)
+            .max(40000),
+          value: z
+            .string()
+            .regex(/^\d{1,60}$/)
+            .default("0"),
+          explanation: z.string().min(1).max(4000),
+        })
+        .parse(body);
+      // Infrastructure mutations use the reviewed Office flows, not arbitrary Clerk drafts.
+      const protectedAddresses = [
+        a.office.safe,
+        cfg.registry,
+        ADDRESSES.safeSingleton,
+        ADDRESSES.safeFactory,
+        ADDRESSES.multiSend,
+        ADDRESSES.allowanceModule,
+      ]
+        .filter(Boolean)
+        .map((v) => v!.toLowerCase());
+      assert(
+        !protectedAddresses.includes(input.to.toLowerCase()),
+        400,
+        "protected_target",
+        "Use the Office controls for Safe, allowance, and Registry changes.",
+      );
+      const call = {
+        to: input.to as Address,
+        data: input.data as Hex,
+        value: input.value,
+      };
+      const simulation = await chain.simulateCall(a.office.safe, call);
+      assert(
+        simulation.success,
+        422,
+        "simulation_failed",
+        "This draft did not pass simulation.",
+      );
+      const selector = input.data.slice(0, 10).toLowerCase(),
+        risks = [
+          ...(BigInt(input.value) > 0n ? ["Transfers native ETH"] : []),
+          ...(["0x095ea7b3", "0xa22cb465"].includes(selector)
+            ? ["Grants token spending permission"]
+            : []),
+          ...(input.data.length > 2
+            ? ["Calls contract code; review target and calldata"]
+            : []),
+        ];
+      return offices.propose(a, "safe_draft", [call], {
+        clerkId,
+        explanation: input.explanation,
+        simulation,
+        risks,
+        requiresHumanSignatures: true,
+      });
+    },
     
     
     
