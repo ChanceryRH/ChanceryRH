@@ -120,7 +120,41 @@ export async function createApp(
   app.get("/health", (_req, res) =>
     res.json({ status: "ok", service: "chancery-backend" }),
   );
-  
+  app.get("/ready", async (_req, res) => {
+    let database = false,
+      network = false,
+      operator = false,
+      worker = false;
+    try {
+      await db.query("SELECT version FROM chancery_schema");
+      database = true;
+      if (cfg.registry) {
+        const state = await chain.configuration();
+        network = true;
+        if (cfg.settlerKey)
+          operator =
+            privateKeyToAccount(
+              cfg.settlerKey as `0x${string}`,
+            ).address.toLowerCase() === state.operator.toLowerCase();
+      }
+    } catch {}
+    try {
+      const [lease] = await db.query(
+        "SELECT id FROM worker_leases WHERE id='settler' AND heartbeat_at>now()-interval '90 seconds'",
+      );
+      worker = !!lease;
+    } catch {}
+    const ready = database && network && !!cfg.providerKey && operator && worker;
+    res.status(ready ? 200 : 503).json({
+      ready,
+      database,
+      mainnet: network,
+      providerConfigured: !!cfg.providerKey,
+      settlerConfigured: !!cfg.settlerKey,
+      operatorMatches: operator,
+      workerHealthy: worker,
+    });
+  });
   
   
   
