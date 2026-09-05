@@ -175,6 +175,47 @@ export function createUpdates(
         })),
       );
     },
-    
+    async vote(a: Access, body: unknown) {
+      assert(
+        a.role === "principal" && a.account.wallet,
+        403,
+        "principal_required",
+        "A Safe owner must cast the Office vote.",
+      );
+      assert(
+        (await benefits(a)).roadmapVote,
+        403,
+        "tier_required",
+        "The Office needs the highest token tier to vote.",
+      );
+      const input = z
+        .strictObject({
+          topic: z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/),
+          choice: z.string().min(1).max(160),
+          signature: z
+            .string()
+            .regex(/^0x[0-9a-fA-F]+$/)
+            .max(10000),
+        })
+        .parse(body);
+      const message = `Chancery roadmap vote\nChain: 4663\nRegistry: ${cfg.registry}\nOffice: ${a.office.id}\nTopic: ${input.topic}\nChoice: ${input.choice}`;
+      assert(
+        await chain.verifyWallet(
+          a.account.wallet,
+          message,
+          input.signature as Hex,
+        ),
+        401,
+        "signature_invalid",
+        "The vote signature is invalid.",
+      );
+      await db.office(a.office.id, (q) =>
+        q.query(
+          "INSERT INTO roadmap_votes(office_id,topic,choice,signer) VALUES($1,$2,$3,$4) ON CONFLICT(office_id,topic) DO UPDATE SET choice=excluded.choice,signer=excluded.signer,created_at=now()",
+          [a.office.id, input.topic, input.choice, a.account.wallet],
+        ),
+      );
+      return { recorded: true, message };
+    },
   };
 }
