@@ -155,7 +155,24 @@ export async function createApp(
       workerHealthy: worker,
     });
   });
-  
+  app.get("/api/config", (_req, res) =>
+    res.json({
+      chainId: 4663,
+      registry: cfg.registry || null,
+      token: cfg.tokenAddress || null,
+      addresses: ADDRESSES,
+      updates: UPDATES.map((u) => ({ ...u, enabled: cfg.released.has(u.id) })),
+      aiProvider: "PROVIDER",
+      privacy: {
+        standard:
+          "Encrypted storage; messages sent to the selected model provider.",
+        zero_retention:
+          "Available only for operator-verified models; responses are not stored by Chancery.",
+        sealed:
+          "Room ciphertext is stored without server decryption keys. Sealed AI inference is not available.",
+      },
+    }),
+  );
   
   
   const auth = registerAuth(app, db, cfg, chain.verifyWallet);
