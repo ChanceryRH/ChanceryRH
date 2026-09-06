@@ -210,7 +210,9 @@ export async function createApp(
   app.get("/api/models", async (_req, res) =>
     res.json(await provider.catalog()),
   );
-  
+  app.get("/api/offices", async (req, res) =>
+    res.json(await offices.list(req.account!)),
+  );
   
   
   type Handler = (a: Access, req: Request, res: Response) => Promise<any>;
