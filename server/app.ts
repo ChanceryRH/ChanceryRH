@@ -207,7 +207,9 @@ export async function createApp(
   app.use("/api", (req, res, next) =>
     ["GET", "HEAD"].includes(req.method) ? next() : auth.csrf(req, res, next),
   );
-  
+  app.get("/api/models", async (_req, res) =>
+    res.json(await provider.catalog()),
+  );
   
   
   
