@@ -253,7 +253,7 @@ export async function createApp(
   };
   const param = (req: Request, name: string) => String(req.params[name]);
   route("get", "", (a) => offices.get(a), undefined, true);
-  
+  route("get", "/seats", (a) => offices.seats(a), undefined, true);
   
   
   
