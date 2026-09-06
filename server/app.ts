@@ -173,7 +173,13 @@ export async function createApp(
       },
     }),
   );
-  
+  app.get("/api/receipt-keys", async (_req, res) =>
+    res.json(
+      await db.query(
+        "SELECT id,public_key,created_at FROM receipt_keys ORDER BY created_at",
+      ),
+    ),
+  );
   
   const auth = registerAuth(app, db, cfg, chain.verifyWallet);
   app.use("/api", auth.authenticated);
