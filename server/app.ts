@@ -180,7 +180,28 @@ export async function createApp(
       ),
     ),
   );
-  
+  app.post("/api/verify", async (req, res) => {
+    const valid = await crypto.verify(req.body?.envelope);
+    let proofValid: null | boolean = null;
+    const proof = req.body?.proof;
+    if (proof !== undefined) {
+      assert(
+        Array.isArray(proof) &&
+          proof.length <= 64 &&
+          proof.every((x) => /^0x[0-9a-f]{64}$/i.test(x)) &&
+          /^0x[0-9a-f]{64}$/i.test(req.body?.leaf) &&
+          /^0x[0-9a-f]{64}$/i.test(req.body?.root),
+        400,
+        "proof_invalid",
+        "Invalid Merkle proof.",
+      );
+      proofValid =
+        valid &&
+        envelopeLeaf(req.body.envelope) === req.body.leaf &&
+        MerkleTree.verify(req.body.leaf, proof, req.body.root);
+    }
+    res.json({ valid, proofValid, anchorVerified: false });
+  });
   const auth = registerAuth(app, db, cfg, chain.verifyWallet);
   app.use("/api", auth.authenticated);
   app.use("/api", (req, res, next) =>
