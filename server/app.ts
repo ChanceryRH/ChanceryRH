@@ -213,7 +213,9 @@ export async function createApp(
   app.get("/api/offices", async (req, res) =>
     res.json(await offices.list(req.account!)),
   );
-  
+  app.post("/api/offices", async (req, res) =>
+    res.status(201).json(await offices.create(req.account!, req.body)),
+  );
   
   type Handler = (a: Access, req: Request, res: Response) => Promise<any>;
   const route = (
