@@ -216,7 +216,15 @@ export async function createApp(
   app.post("/api/offices", async (req, res) =>
     res.status(201).json(await offices.create(req.account!, req.body)),
   );
-  
+  app.post("/api/offices/:officeId/claim", async (req, res) =>
+    res.json(
+      await offices.claim(
+        req.account!,
+        String(req.params.officeId),
+        req.body?.token,
+      ),
+    ),
+  );
   type Handler = (a: Access, req: Request, res: Response) => Promise<any>;
   const route = (
     method: "get" | "post" | "delete",
