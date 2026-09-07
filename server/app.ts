@@ -268,7 +268,7 @@ export async function createApp(
     undefined,
     true,
   );
-  
+  route("post", "/seats/propose", (a, r) => offices.changeSeats(a, r.body));
   
   
   
