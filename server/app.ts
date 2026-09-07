@@ -270,7 +270,7 @@ export async function createApp(
   );
   route("post", "/seats/propose", (a, r) => offices.changeSeats(a, r.body));
   route("post", "/invites", (a, r) => offices.invite(a, r.body));
-  
+  route("post", "/policy/propose", (a, r) => offices.changePolicy(a, r.body));
   
   
   
