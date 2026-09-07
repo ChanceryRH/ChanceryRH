@@ -261,7 +261,13 @@ export async function createApp(
     undefined,
     true,
   );
-  
+  route(
+    "post",
+    "/proposals/:id/refresh",
+    (a, r) => offices.refreshProposal(a, param(r, "id")),
+    undefined,
+    true,
+  );
   
   
   
