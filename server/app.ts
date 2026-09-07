@@ -269,7 +269,7 @@ export async function createApp(
     true,
   );
   route("post", "/seats/propose", (a, r) => offices.changeSeats(a, r.body));
-  
+  route("post", "/invites", (a, r) => offices.invite(a, r.body));
   
   
   
