@@ -275,7 +275,7 @@ export async function createApp(
     offices.changeCap(a, r.body?.monthlyCap),
   );
   route("post", "/close/propose", (a) => offices.close(a));
-  
+  route("get", "/proposals", (a) => offices.queue(a), undefined, true);
   
   
   
