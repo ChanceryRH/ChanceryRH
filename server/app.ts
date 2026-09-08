@@ -276,7 +276,13 @@ export async function createApp(
   );
   route("post", "/close/propose", (a) => offices.close(a));
   route("get", "/proposals", (a) => offices.queue(a), undefined, true);
-  
+  route(
+    "get",
+    "/proposals/:id",
+    (a, r) => offices.proposal(a, param(r, "id")),
+    undefined,
+    true,
+  );
   
   
   
