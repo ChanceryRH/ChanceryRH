@@ -290,7 +290,13 @@ export async function createApp(
     undefined,
     true,
   );
-  
+  route(
+    "get",
+    "/proposals/:id/execution",
+    (a, r) => offices.execution(a, param(r, "id")),
+    undefined,
+    true,
+  );
   
   
   
