@@ -283,7 +283,13 @@ export async function createApp(
     undefined,
     true,
   );
-  
+  route(
+    "post",
+    "/proposals/:id/signatures",
+    (a, r) => offices.signProposal(a, param(r, "id"), r.body?.signature),
+    undefined,
+    true,
+  );
   
   
   
