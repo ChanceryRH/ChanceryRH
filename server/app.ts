@@ -305,7 +305,7 @@ export async function createApp(
     true,
   );
   route("get", "/conversations", (a) => conversations.list(a));
-  
+  route("post", "/conversations", (a, r) => conversations.create(a, r.body));
   
   
   
