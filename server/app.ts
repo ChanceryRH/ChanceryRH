@@ -297,7 +297,13 @@ export async function createApp(
     undefined,
     true,
   );
-  
+  route(
+    "post",
+    "/proposals/:id/confirm",
+    (a, r) => offices.confirm(a, param(r, "id"), r.body?.transactionHash),
+    undefined,
+    true,
+  );
   
   
   
