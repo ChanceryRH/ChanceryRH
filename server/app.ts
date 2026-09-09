@@ -309,7 +309,9 @@ export async function createApp(
   route("get", "/conversations/:id/messages", (a, r) =>
     conversations.messages(a, param(r, "id")),
   );
-  
+  route("delete", "/conversations/:id", (a, r) =>
+    conversations.remove(a, param(r, "id")),
+  );
   
   
   
