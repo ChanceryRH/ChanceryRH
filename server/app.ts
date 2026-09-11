@@ -314,7 +314,7 @@ export async function createApp(
   );
   route("post", "/quotes", (a, r) => ledger.quote(a, r.body));
   route("post", "/chat", (a, r) => ledger.request(a, r.body));
-  
+  route("get", "/requests/:id", (a, r) => ledger.status(a, param(r, "id")));
   
   
   
