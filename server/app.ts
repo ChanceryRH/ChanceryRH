@@ -313,7 +313,7 @@ export async function createApp(
     conversations.remove(a, param(r, "id")),
   );
   route("post", "/quotes", (a, r) => ledger.quote(a, r.body));
-  
+  route("post", "/chat", (a, r) => ledger.request(a, r.body));
   
   
   
