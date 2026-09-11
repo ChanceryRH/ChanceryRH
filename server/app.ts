@@ -321,7 +321,7 @@ export async function createApp(
       typeof r.query.month === "string" ? r.query.month : undefined,
     ),
   );
-  
+  route("get", "/ledger/:id/proof", (a, r) => ledger.proof(a, param(r, "id")));
   
   
   
