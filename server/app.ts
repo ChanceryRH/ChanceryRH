@@ -315,7 +315,12 @@ export async function createApp(
   route("post", "/quotes", (a, r) => ledger.quote(a, r.body));
   route("post", "/chat", (a, r) => ledger.request(a, r.body));
   route("get", "/requests/:id", (a, r) => ledger.status(a, param(r, "id")));
-  
+  route("get", "/ledger", (a, r) =>
+    ledger.list(
+      a,
+      typeof r.query.month === "string" ? r.query.month : undefined,
+    ),
+  );
   
   
   
