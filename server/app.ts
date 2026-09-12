@@ -404,7 +404,12 @@ export async function createApp(
     }
   });
   route("post", "/devices", (a, r) => rooms.device(a, r.body), "rooms");
-  
+  route(
+    "delete",
+    "/devices/:id",
+    (a, r) => rooms.revokeDevice(a, param(r, "id")),
+    "rooms",
+  );
   
   
   
