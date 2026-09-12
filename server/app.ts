@@ -403,7 +403,7 @@ export async function createApp(
       res.destroy(error instanceof Error ? error : undefined);
     }
   });
-  
+  route("post", "/devices", (a, r) => rooms.device(a, r.body), "rooms");
   
   
   
