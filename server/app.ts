@@ -410,7 +410,7 @@ export async function createApp(
     (a, r) => rooms.revokeDevice(a, param(r, "id")),
     "rooms",
   );
-  
+  route("get", "/rooms", (a) => rooms.list(a), "rooms");
   
   
   
