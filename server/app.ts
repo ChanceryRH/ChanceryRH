@@ -322,7 +322,87 @@ export async function createApp(
     ),
   );
   route("get", "/ledger/:id/proof", (a, r) => ledger.proof(a, param(r, "id")));
-  
+  route("get", "/ledger/export", async (a, r, res) => {
+    const iterator = ledger.statement(
+        a,
+        typeof r.query.month === "string" ? r.query.month : undefined,
+      ),
+      first = await iterator.next(),
+      csv = r.query.format === "csv";
+    const field = (value: unknown) => {
+      let text = String(value ?? "");
+      if (/^[=+@\-\t\r\n]/.test(text)) text = "'" + text;
+      return '"' + text.replace(/"/g, '""') + '"';
+    };
+    const write = async (text: string) => {
+      if (res.destroyed) throw Error("Export connection closed");
+      if (res.write(text)) return;
+      await new Promise<void>((resolve, reject) => {
+        const drain = () => {
+          res.off("close", close);
+          resolve();
+        };
+        const close = () => {
+          res.off("drain", drain);
+          reject(Error("Export connection closed"));
+        };
+        res.once("drain", drain);
+        res.once("close", close);
+      });
+    };
+    res
+      .type(csv ? "text/csv" : "application/json")
+      .set(
+        "Content-Disposition",
+        `attachment; filename="chancery-ledger.${csv ? "csv" : "json"}"`,
+      );
+    let comma = false;
+    await write(
+      csv
+        ? [
+            "id",
+            "date",
+            "actor",
+            "model",
+            "status",
+            "charged_usd",
+            "settlement",
+          ]
+            .map(field)
+            .join(",") + "\r\n"
+        : "[",
+    );
+    async function batch(rows: any[]) {
+      for (const row of rows) {
+        if (csv)
+          await write(
+            [
+              row.id,
+              new Date(row.created_at).toISOString(),
+              row.envelope.payload.actorId,
+              row.envelope.payload.model,
+              row.envelope.payload.status,
+              row.envelope.payload.chargedUsd,
+              row.settlement_id,
+            ]
+              .map(field)
+              .join(",") + "\r\n",
+          );
+        else {
+          await write((comma ? "," : "") + JSON.stringify(row));
+          comma = true;
+        }
+      }
+    }
+    try {
+      if (!first.done) await batch(first.value);
+      for await (const rows of iterator) await batch(rows);
+      if (!csv) await write("]");
+      res.end();
+    } catch (error) {
+      res.destroy(error instanceof Error ? error : undefined);
+    }
+  });
   
   
   
