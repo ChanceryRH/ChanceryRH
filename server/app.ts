@@ -418,7 +418,12 @@ export async function createApp(
     (a, r) => rooms.members(a, param(r, "id"), r.body),
     "rooms",
   );
-  
+  route(
+    "get",
+    "/rooms/:id/devices",
+    (a, r) => rooms.directory(a, param(r, "id")),
+    "rooms",
+  );
   
   
   
