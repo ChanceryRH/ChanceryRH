@@ -430,7 +430,12 @@ export async function createApp(
     (a, r) => rooms.rotate(a, param(r, "id"), r.body),
     "rooms",
   );
-  
+  route(
+    "get",
+    "/rooms/:id/keys/:deviceId",
+    (a, r) => rooms.keys(a, param(r, "id"), param(r, "deviceId")),
+    "rooms",
+  );
   
   
   
