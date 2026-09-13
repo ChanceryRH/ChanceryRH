@@ -448,7 +448,7 @@ export async function createApp(
     (a, r) => rooms.post(a, param(r, "id"), r.body),
     "rooms",
   );
-  
+  route("get", "/clerks", (a) => clerks.list(a), "clerks");
   
   
   
