@@ -449,7 +449,7 @@ export async function createApp(
     "rooms",
   );
   route("get", "/clerks", (a) => clerks.list(a), "clerks");
-  
+  route("post", "/clerks", (a, r) => clerks.create(a, r.body), "clerks");
   
   
   
