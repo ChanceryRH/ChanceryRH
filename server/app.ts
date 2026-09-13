@@ -436,7 +436,12 @@ export async function createApp(
     (a, r) => rooms.keys(a, param(r, "id"), param(r, "deviceId")),
     "rooms",
   );
-  
+  route(
+    "get",
+    "/rooms/:id/items",
+    (a, r) => rooms.items(a, param(r, "id")),
+    "rooms",
+  );
   
   
   
