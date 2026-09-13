@@ -424,7 +424,12 @@ export async function createApp(
     (a, r) => rooms.directory(a, param(r, "id")),
     "rooms",
   );
-  
+  route(
+    "post",
+    "/rooms/:id/rotate",
+    (a, r) => rooms.rotate(a, param(r, "id"), r.body),
+    "rooms",
+  );
   
   
   
