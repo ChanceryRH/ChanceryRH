@@ -450,7 +450,12 @@ export async function createApp(
   );
   route("get", "/clerks", (a) => clerks.list(a), "clerks");
   route("post", "/clerks", (a, r) => clerks.create(a, r.body), "clerks");
-  
+  route(
+    "post",
+    "/clerks/:id/prepare",
+    (a, r) => clerks.prepare(a, param(r, "id"), r.body?.chat),
+    "clerks",
+  );
   
   
   
