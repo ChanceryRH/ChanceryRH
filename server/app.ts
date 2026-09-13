@@ -442,7 +442,12 @@ export async function createApp(
     (a, r) => rooms.items(a, param(r, "id")),
     "rooms",
   );
-  
+  route(
+    "post",
+    "/rooms/:id/items",
+    (a, r) => rooms.post(a, param(r, "id"), r.body),
+    "rooms",
+  );
   
   
   
