@@ -456,7 +456,12 @@ export async function createApp(
     (a, r) => clerks.prepare(a, param(r, "id"), r.body?.chat),
     "clerks",
   );
-  
+  route(
+    "post",
+    "/clerks/:id/run",
+    (a, r) => clerks.run(a, param(r, "id"), r.body),
+    "clerks",
+  );
   
   
   
