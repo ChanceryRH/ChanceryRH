@@ -474,7 +474,12 @@ export async function createApp(
     (a, r) => clerks.resume(a, param(r, "id")),
     "clerks",
   );
-  
+  route(
+    "post",
+    "/clerks/:id/revoke",
+    (a, r) => clerks.revoke(a, param(r, "id")),
+    "clerks",
+  );
   
   
   
