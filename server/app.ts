@@ -480,7 +480,7 @@ export async function createApp(
     (a, r) => clerks.revoke(a, param(r, "id")),
     "clerks",
   );
-  
+  route("get", "/approvals", (a) => clerks.approvals(a), "clerks");
   
   
   
