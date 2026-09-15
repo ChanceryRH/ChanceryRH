@@ -462,7 +462,12 @@ export async function createApp(
     (a, r) => clerks.run(a, param(r, "id"), r.body),
     "clerks",
   );
-  
+  route(
+    "post",
+    "/clerks/:id/pause",
+    (a, r) => clerks.pause(a, param(r, "id")),
+    "clerks",
+  );
   
   
   
