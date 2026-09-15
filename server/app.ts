@@ -481,7 +481,12 @@ export async function createApp(
     "clerks",
   );
   route("get", "/approvals", (a) => clerks.approvals(a), "clerks");
-  
+  route(
+    "post",
+    "/approvals/:id",
+    (a, r) => clerks.decide(a, param(r, "id"), r.body),
+    "clerks",
+  );
   
   
   
