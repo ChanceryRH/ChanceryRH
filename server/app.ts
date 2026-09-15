@@ -487,7 +487,12 @@ export async function createApp(
     (a, r) => clerks.decide(a, param(r, "id"), r.body),
     "clerks",
   );
-  
+  route(
+    "post",
+    "/clerks/:id/safe-drafts",
+    (a, r) => updates.draft(a, param(r, "id"), r.body),
+    "safe_drafts",
+  );
   
   
   
