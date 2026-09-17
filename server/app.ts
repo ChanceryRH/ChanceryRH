@@ -496,7 +496,12 @@ export async function createApp(
   route("post", "/minutes", (a, r) => updates.minutes(a, r.body), "minutes");
   route("get", "/minutes", (a) => updates.listMinutes(a), "minutes");
   route("get", "/benefits", (a) => updates.benefits(a), "token_benefits");
-  
+  route(
+    "post",
+    "/roadmap-votes",
+    (a, r) => updates.vote(a, r.body),
+    "token_benefits",
+  );
   app.use((_req, _res, next) =>
     next(new ApiError(404, "not_found", "Endpoint not found.")),
   );
