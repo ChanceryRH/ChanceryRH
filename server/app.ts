@@ -493,7 +493,7 @@ export async function createApp(
     (a, r) => updates.draft(a, param(r, "id"), r.body),
     "safe_drafts",
   );
-  
+  route("post", "/minutes", (a, r) => updates.minutes(a, r.body), "minutes");
   
   
   
