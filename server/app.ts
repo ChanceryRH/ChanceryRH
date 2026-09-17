@@ -494,7 +494,7 @@ export async function createApp(
     "safe_drafts",
   );
   route("post", "/minutes", (a, r) => updates.minutes(a, r.body), "minutes");
-  
+  route("get", "/minutes", (a) => updates.listMinutes(a), "minutes");
   
   
   app.use((_req, _res, next) =>
