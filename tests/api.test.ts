@@ -124,4 +124,29 @@ test("database: RLS blocks reads and writes across Offices and unscoped service 
     1,
   );
 });
-
+test("Ledger export streams complete JSON and CSV with protected Office access", async (t) => {
+  const r = await fixture();
+  t.after(() => r.db.close());
+  const owner = await r.login(),
+    o = await r.office(owner.account),
+    quote = await r.ledger.quote(o.access, chat);
+  await r.ledger.request(o.access, {
+    id: uid("req_"),
+    quoteId: quote.id,
+    chat,
+  });
+  const json = await owner.agent.get(`/api/offices/${o.id}/ledger/export`);
+  assert.equal(json.status, 200);
+  assert.equal(json.body.length, 1);
+  assert.equal(json.body[0].envelope.payload.chargedUsd, "0.0105");
+  const csv = await owner.agent.get(
+    `/api/offices/${o.id}/ledger/export?format=csv`,
+  );
+  assert.equal(csv.status, 200);
+  assert(csv.text.includes('"0.0105"'));
+  assert(csv.headers["content-disposition"].includes(".csv"));
+  const bad = await owner.agent.get(
+    `/api/offices/${o.id}/ledger/export?month=bad`,
+  );
+  assert.equal(bad.status, 400);
+});
