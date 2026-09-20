@@ -44,7 +44,33 @@ test("billing: exact quote, signed receipt, replay and content binding", async (
     MerkleTree.verify(envelopeLeaf(first.receipt), tree.proof(0), tree.root),
   );
 });
-
+test("billing: concurrent holds cannot exceed shared Office cap", async (t) => {
+  const r = await fixture();
+  t.after(() => r.db.close());
+  const user = await r.login(),
+    o = await r.office(user.account, "0.15");
+  r.setCost(null);
+  const quotes = await Promise.all([
+    r.ledger.quote(o.access, chat),
+    r.ledger.quote(o.access, chat),
+  ]);
+  const results = await Promise.allSettled(
+    quotes.map((q) =>
+      r.ledger.request(o.access, { id: uid("req_"), quoteId: q.id, chat }),
+    ),
+  );
+  assert.equal(results.filter((x) => x.status === "fulfilled").length, 1);
+  assert.equal(r.calls(), 1);
+  const rejected = results.find(
+    (x) => x.status === "rejected",
+  ) as PromiseRejectedResult;
+  assert.equal(rejected.reason.code, "actor_cap");
+  const [row] = await r.db.office(o.id, (q) =>
+    q.query("SELECT * FROM requests"),
+  );
+  assert.equal(row.status, "uncertain");
+  assert.equal(row.reserved_pico, dollars("0.105").toString());
+});
 
 
 
