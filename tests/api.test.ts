@@ -98,5 +98,30 @@ test("API: CSRF, Office isolation, and disabled updates fail closed", async (t) 
   assert.equal(result.status, 200, JSON.stringify(result.body));
   assert.equal(result.body.chargedUsd, "0.0105");
 });
-
+test("database: RLS blocks reads and writes across Offices and unscoped service queries", async (t) => {
+  const r = await fixture();
+  t.after(() => r.db.close());
+  const owner = await r.login(),
+    one = await r.office(owner.account, "100", 1),
+    two = await r.office(owner.account, "100", 2);
+  assert.equal(
+    (
+      await r.db.office(one.id, (q) =>
+        q.query("SELECT * FROM seats WHERE office_id=$1", [two.id]),
+      )
+    ).length,
+    0,
+  );
+  await assert.rejects(
+    r.db.office(one.id, (q) =>
+      q.query("INSERT INTO office_locks(office_id) VALUES($1)", [two.id]),
+    ),
+    /row-level security/,
+  );
+  assert.equal((await r.db.query("SELECT * FROM seats")).length, 0);
+  assert.equal(
+    (await r.db.office(one.id, (q) => q.query("SELECT * FROM seats"))).length,
+    1,
+  );
+});
 
