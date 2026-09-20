@@ -71,7 +71,26 @@ test("billing: concurrent holds cannot exceed shared Office cap", async (t) => {
   assert.equal(row.status, "uncertain");
   assert.equal(row.reserved_pico, dollars("0.105").toString());
 });
-
+test("billing: missing cost and network failures retain holds; explicit refusal releases", async (t) => {
+  const r = await fixture();
+  t.after(() => r.db.close());
+  const user = await r.login(),
+    o = await r.office(user.account);
+  for (const [error, status] of [
+    [new ProviderFailure("provider_network_uncertain", true), "uncertain"],
+    [new ProviderFailure("provider_http_429", false), "refused"],
+  ] as const) {
+    r.fail(error);
+    const quote = await r.ledger.quote(o.access, chat),
+      result = await r.ledger.request(o.access, {
+        id: uid("req_"),
+        quoteId: quote.id,
+        chat,
+      });
+    assert.equal(result.status, status);
+    assert(await r.crypto.verify(result.receipt));
+  }
+});
 
 
 
