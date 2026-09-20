@@ -114,7 +114,31 @@ test("billing: provider cost above quote is absorbed and zero-retention content 
   );
   assert.equal(row.response_enc, null);
 });
-
+test("billing: guards run before provider and seat fees are idempotent", async (t) => {
+  const r = await fixture();
+  t.after(() => r.db.close());
+  const user = await r.login(),
+    o = await r.office(user.account);
+  await assert.rejects(
+    r.ledger.quote(o.access, {
+      ...chat,
+      messages: [
+        { role: "user", content: "My secret sk-abcdefghijklmnopqrstuvwxyz" },
+      ],
+    }),
+    { code: "secret_detected" },
+  );
+  assert.equal(r.calls(), 0);
+  await r.db.office(o.id, (q) => q.query("DELETE FROM seat_charges"));
+  const jobs = createJobs(r);
+  await jobs.seatFees(o.access.office);
+  await jobs.seatFees(o.access.office);
+  const rows = await r.db.office(o.id, (q) =>
+    q.query("SELECT * FROM receipts WHERE kind='seat_fee'"),
+  );
+  assert.equal(rows.length, 1);
+  assert(await r.crypto.verify(rows[0].envelope));
+});
 
 
 
