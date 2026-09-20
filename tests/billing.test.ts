@@ -91,7 +91,29 @@ test("billing: missing cost and network failures retain holds; explicit refusal 
     assert(await r.crypto.verify(result.receipt));
   }
 });
-
+test("billing: provider cost above quote is absorbed and zero-retention content is not saved", async (t) => {
+  const r = await fixture();
+  t.after(() => r.db.close());
+  const user = await r.login(),
+    o = await r.office(user.account);
+  r.setCost(dollars("3"));
+  const input = { ...chat, lane: "zero_retention" as const },
+    quote = await r.ledger.quote(o.access, input),
+    id = uid("req_"),
+    result = await r.ledger.request(o.access, {
+      id,
+      quoteId: quote.id,
+      chat: input,
+    });
+  assert.equal(result.chargedUsd, quote.maximumUsd);
+  assert.equal(result.content, "Working answer");
+  const replay = await r.ledger.status(o.access, id);
+  assert.equal(replay.content, null);
+  const [row] = await r.db.office(o.id, (q) =>
+    q.query("SELECT response_enc FROM requests WHERE id=$1", [id]),
+  );
+  assert.equal(row.response_enc, null);
+});
 
 
 
