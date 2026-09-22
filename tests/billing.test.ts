@@ -139,6 +139,44 @@ test("billing: guards run before provider and seat fees are idempotent", async (
   assert.equal(rows.length, 1);
   assert(await r.crypto.verify(rows[0].envelope));
 });
-
+test("conversations: encrypted history, deletion and ephemeral content", async (t) => {
+  const r = await fixture();
+  t.after(() => r.db.close());
+  const user = await r.login(),
+    o = await r.office(user.account),
+    conversation = await r.conversations.create(o.access, {
+      title: "Private plan",
+    }),
+    input = { ...chat, conversationId: conversation.id };
+  const quote = await r.ledger.quote(o.access, input),
+    result = await r.ledger.request(o.access, {
+      id: uid("req_"),
+      quoteId: quote.id,
+      chat: input,
+    }),
+    history = await r.conversations.messages(o.access, conversation.id);
+  assert.deepEqual(
+    history.map((m) => m.role),
+    ["user", "assistant"],
+  );
+  assert.equal(history[1].content, "Working answer");
+  await r.conversations.remove(o.access, conversation.id);
+  assert.equal((await r.ledger.status(o.access, result.id)).content, null);
+  assert(await r.crypto.verify(result.receipt));
+  const ephemeral = await r.conversations.create(o.access, { ephemeral: true }),
+    privateInput = { ...chat, conversationId: ephemeral.id },
+    q = await r.ledger.quote(o.access, privateInput),
+    reply = await r.ledger.request(o.access, {
+      id: uid("req_"),
+      quoteId: q.id,
+      chat: privateInput,
+    });
+  assert.equal(reply.content, "Working answer");
+  assert.equal(
+    (await r.conversations.messages(o.access, ephemeral.id)).length,
+    0,
+  );
+  assert.equal((await r.ledger.status(o.access, reply.id)).content, null);
+});
 
 
