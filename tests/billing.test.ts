@@ -178,5 +178,45 @@ test("conversations: encrypted history, deletion and ephemeral content", async (
   );
   assert.equal((await r.ledger.status(o.access, reply.id)).content, null);
 });
-
+test("reconciliation: appends a signed amendment and preserves the pending receipt", async (t) => {
+  const { reconcileRequest } = await import("../server/reconcile.ts");
+  const r = await fixture();
+  t.after(() => r.db.close());
+  const user = await r.login(),
+    o = await r.office(user.account);
+  r.setCost(null);
+  const q = await r.ledger.quote(o.access, chat),
+    first = await r.ledger.request(o.access, {
+      id: uid("req_"),
+      quoteId: q.id,
+      chat,
+    });
+  assert.equal(first.status, "uncertain");
+  const amended = await reconcileRequest(r, {
+    officeId: o.id,
+    requestId: first.id,
+    providerUsd: "0.01",
+    evidenceHash: "ab".repeat(32),
+  });
+  assert(await r.crypto.verify(amended.envelope));
+  assert.equal(amended.envelope.payload.amends, first.receipt.payload.id);
+  assert.equal(amended.envelope.payload.chargedUsd, "0.0105");
+  assert.equal(
+    (
+      await r.db.office(o.id, (q) =>
+        q.query("SELECT * FROM receipts WHERE request_id=$1", [first.id]),
+      )
+    ).length,
+    2,
+  );
+  await assert.rejects(
+    reconcileRequest(r, {
+      officeId: o.id,
+      requestId: first.id,
+      providerUsd: "0.01",
+      evidenceHash: "ab".repeat(32),
+    }),
+    { code: "request_not_uncertain" },
+  );
+});
 
