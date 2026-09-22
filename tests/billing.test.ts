@@ -219,4 +219,17 @@ test("reconciliation: appends a signed amendment and preserves the pending recei
     { code: "request_not_uncertain" },
   );
 });
-
+test("unpaid seat fees prevent inference before any PROVIDER request", async (t) => {
+  const r = await fixture();
+  t.after(() => r.db.close());
+  const user = await r.login(),
+    o = await r.office(user.account, "0.15");
+  await r.db.office(o.id, (q) => q.query("DELETE FROM seat_charges"));
+  await createJobs(r).seatFees(o.access.office);
+  const quote = await r.ledger.quote(o.access, chat);
+  await assert.rejects(
+    r.ledger.request(o.access, { id: uid("req_"), quoteId: quote.id, chat }),
+    { code: "seat_fee_due" },
+  );
+  assert.equal(r.calls(), 0);
+});
