@@ -56,6 +56,61 @@ test("frontend hosting: app slash routing, deep links, assets and API boundaries
   assert.equal((await client.post("/app/")).status, 404);
   assert.equal((await client.get("/.env")).status, 404);
 });
-
+test("frontend transport: refresh only rejected CSRF checks; never retry ambiguous writes", async (t) => {
+  const original = globalThis.fetch;
+  t.after(() => {
+    globalThis.fetch = original;
+  });
+  const calls: any[] = [];
+  let n = 0;
+  globalThis.fetch = async (url: any, options: any) => {
+    calls.push({ url, options });
+    n++;
+    if (n === 1)
+      return Response.json(
+        { error: { code: "csrf_invalid", message: "Refresh" } },
+        { status: 403 },
+      );
+    if (n === 2) return Response.json({ csrfToken: "fresh-token" });
+    return Response.json({ id: "same-request-id", status: "complete" });
+  };
+  const client = new ChanceryClient();
+  client.csrfToken = "expired";
+  await client.request("/offices/id/chat", { id: "same-request-id" });
+  assert.deepEqual(
+    calls.map((c) => c.url),
+    ["/api/offices/id/chat", "/api/auth/session", "/api/offices/id/chat"],
+  );
+  assert.equal(calls[2].options.headers["X-CSRF-Token"], "fresh-token");
+  assert.equal(calls[0].options.body, calls[2].options.body);
+  assert.equal(calls[2].options.credentials, "include");
+  let attempts = 0;
+  globalThis.fetch = async () => {
+    attempts++;
+    throw new TypeError("Network failure");
+  };
+  await assert.rejects(() =>
+    client.request("/offices/id/chat", { id: "never-repeat" }),
+  );
+  assert.equal(attempts, 1);
+  globalThis.fetch = async () =>
+    new Response("<html>Unavailable</html>", { status: 503 });
+  await assert.rejects(
+    () => client.request("/config"),
+    (e: any) => e instanceof ChanceryError && e.code === "response_invalid",
+  );
+  let expired = false;
+  client.onSessionExpired = () => {
+    expired = true;
+  };
+  globalThis.fetch = async () =>
+    Response.json(
+      { error: { code: "sign_in_required", message: "Sign in" } },
+      { status: 401 },
+    );
+  await assert.rejects(() => client.session());
+  assert.equal(expired, true);
+  assert.equal(client.csrfToken, null);
+});
 
 
