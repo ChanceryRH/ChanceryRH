@@ -112,5 +112,112 @@ test("frontend transport: refresh only rejected CSRF checks; never retry ambiguo
   assert.equal(expired, true);
   assert.equal(client.csrfToken, null);
 });
-
+test("frontend Safe signer: verifies proposal hash and wallet identity before requesting a signature", async (t) => {
+  const events = new EventTarget();
+  const previous = (globalThis as any).window;
+  (globalThis as any).window = events;
+  t.after(() => {
+    (globalThis as any).window = previous;
+  });
+  const { signSafe, sendSafe } = await import("../web/wallet.ts");
+  const tx = {
+    to: OWNER.address,
+    value: "0",
+    data: "0x" as const,
+    operation: 0 as const,
+    safeTxGas: "0",
+    baseGas: "0",
+    gasPrice: "0",
+    gasToken: ZERO_ADDRESS,
+    refundReceiver: ZERO_ADDRESS,
+    nonce: "0",
+  };
+  const typed = {
+    domain: { chainId: 4663, verifyingContract: OWNER.address },
+    types: safeTypedTypes,
+    primaryType: "SafeTx" as const,
+    message: {
+      ...tx,
+      value: 0n,
+      safeTxGas: 0n,
+      baseGas: 0n,
+      gasPrice: 0n,
+      nonce: 0n,
+    },
+  };
+  const hash = hashTypedData(typed),
+    methods: string[] = [];
+  const provider = {
+    request: async ({ method, params }: any) => {
+      methods.push(method);
+      if (method === "eth_accounts") return [OWNER.address];
+      if (method === "eth_chainId") return "0x1237";
+      if (method === "eth_signTypedData_v4") {
+        const data = JSON.parse(params[1]);
+        assert.equal(data.domain.chainId, 4663);
+        return "0x1234";
+      }
+      if (method === "eth_sendTransaction") return "0x5678";
+      throw Error(method);
+    },
+  };
+  assert.equal(
+    await signSafe(provider, OWNER.address, OWNER.address, tx, hash),
+    "0x1234",
+  );
+  methods.length = 0;
+  await assert.rejects(
+    () =>
+      signSafe(
+        provider,
+        OWNER.address,
+        OWNER.address,
+        { ...tx, value: "1" },
+        hash,
+      ),
+    /does not match/,
+  );
+  assert.equal(methods.includes("eth_signTypedData_v4"), false);
+  await assert.rejects(
+    () => signSafe(provider, ZERO_ADDRESS, OWNER.address, tx, hash),
+    /account changed/,
+  );
+  const signatures = [
+    {
+      owner: OWNER.address,
+      signature: `0x${"11".repeat(65)}` as `0x${string}`,
+    },
+  ];
+  const execution = {
+    to: OWNER.address,
+    data: encodeSafeExecution(tx, signatures),
+    value: "0",
+    chainId: 4663,
+  };
+  assert.equal(
+    await sendSafe(
+      provider,
+      OWNER.address,
+      OWNER.address,
+      execution,
+      tx,
+      signatures,
+    ),
+    "0x5678",
+  );
+  methods.length = 0;
+  await assert.rejects(
+    () =>
+      sendSafe(
+        provider,
+        OWNER.address,
+        OWNER.address,
+        { ...execution, data: "0x1234" },
+        tx,
+        signatures,
+      ),
+    /Unexpected Safe execution/,
+  );
+  assert.equal(methods.includes("eth_sendTransaction"), false);
+});
 
