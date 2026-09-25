@@ -220,4 +220,13 @@ test("frontend Safe signer: verifies proposal hash and wallet identity before re
   );
   assert.equal(methods.includes("eth_sendTransaction"), false);
 });
-
+test("local startup: a fresh embedded database creates its parent directory", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "chancery-db-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const database = await openDatabase(`pglite://${root}/new-parent/database`);
+  await database.migrate();
+  assert.ok(
+    (await database.query("SELECT version FROM chancery_schema")).length,
+  );
+  await database.close();
+});
