@@ -44,7 +44,12 @@ test("decimal conversion retains the smallest billing unit and bounds hostile ex
   for (let i = -1000; i <= 1000; i++)
     assert.equal(usdToPico(picoToUsdString(BigInt(i))), BigInt(i));
 });
-
+test("fee rounding obeys floor and ceiling for signed values", () => {
+  assert.equal(divideRounded(-11n, 10n, "floor"), -2n);
+  assert.equal(divideRounded(-11n, 10n, "ceil"), -1n);
+  assert.equal(mulBps(-1n, 1, "floor"), -1n);
+  assert.throws(() => mulBps(100n, 0.5));
+});
 
 
 
