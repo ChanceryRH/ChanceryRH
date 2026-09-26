@@ -50,7 +50,21 @@ test("fee rounding obeys floor and ceiling for signed values", () => {
   assert.equal(mulBps(-1n, 1, "floor"), -1n);
   assert.throws(() => mulBps(100n, 0.5));
 });
-
+test("allocation conserves totals, resolves ties and rejects invalid weights", () => {
+  assert.deepEqual(allocate(5n, [1n, 1n, 1n]), [2n, 2n, 1n]);
+  assert.deepEqual(allocate(5n, [0n, 0n]), [5n, 0n]);
+  assert.throws(() => allocate(1n, []));
+  assert.throws(() => allocate(1n, [-1n, 2n]));
+  for (let n = 1; n < 40; n++) {
+    const weights = Array.from({ length: n }, (_, i) => BigInt(i + 1));
+    const parts = allocate(101n, weights);
+    assert.equal(
+      parts.reduce((a, b) => a + b, 0n),
+      101n,
+    );
+    assert(parts.every((value) => value >= 0n));
+  }
+});
 
 
 
