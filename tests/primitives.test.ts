@@ -65,7 +65,17 @@ test("allocation conserves totals, resolves ties and rejects invalid weights", (
     assert(parts.every((value) => value >= 0n));
   }
 });
-
+test("canonical records preserve dangerous property names without prototype mutation", () => {
+  const input = JSON.parse('{"z":1,"__proto__":{"admin":true},"a":2}');
+  assert.equal(
+    canonicalJson(input),
+    '{"__proto__":{"admin":true},"a":2,"z":1}',
+  );
+  assert.equal(
+    canonicalJson({ z: 1n, a: [undefined, 2], ignored: undefined }),
+    '{"a":[null,2],"z":"1"}',
+  );
+});
 
 
 
