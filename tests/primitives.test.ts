@@ -91,7 +91,21 @@ test("canonical records reject ambiguous objects, accessors and cycles", () => {
   ])
     assert.throws(() => canonicalJson(input));
 });
-
+test("Merkle proofs verify every odd-tree leaf and reject malformed indices", () => {
+  const leaves = Array.from({ length: 7 }, (_, i) =>
+    keccak256(toHex(`receipt-${i}`)),
+  );
+  const tree = new MerkleTree(leaves),
+    root = tree.root;
+  for (let i = 0; i < leaves.length; i++)
+    assert(MerkleTree.verify(leaves[i], tree.proof(i), root));
+  leaves[0] = keccak256(toHex("mutated"));
+  assert.equal(tree.root, root);
+  for (const invalid of [-1, 0.5, NaN, Infinity, 7])
+    assert.throws(() => tree.proof(invalid));
+  assert.equal(MerkleTree.verify("0x12" as Hex, [], root), false);
+  assert.throws(() => new MerkleTree([]));
+});
 
 
 
