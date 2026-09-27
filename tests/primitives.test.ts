@@ -106,7 +106,42 @@ test("Merkle proofs verify every odd-tree leaf and reject malformed indices", ()
   assert.equal(MerkleTree.verify("0x12" as Hex, [], root), false);
   assert.throws(() => new MerkleTree([]));
 });
-
+test("Clerk caps retain owner-approved decimal precision and exact approval boundaries", () => {
+  const rule = rulebookSchema.parse({
+    models: ["vendor/*"],
+    perRequestUsd: "4999.999999999999",
+    perHourUsd: "5000",
+    perDayUsd: "5000",
+    perWeekUsd: "5000",
+    askAboveUsd: "0.000000000001",
+    maxTokens: 10,
+  });
+  const usage = { active: true, spent: { hour: 0n, day: 0n, week: 0n } };
+  assert.equal(
+    evaluateClerkPolicy(rule, usage, {
+      model: "vendor/model",
+      maximum: 1n,
+      maxTokens: 10,
+    }).decision,
+    "allow",
+  );
+  assert.equal(
+    evaluateClerkPolicy(rule, usage, {
+      model: "vendor/model",
+      maximum: 2n,
+      maxTokens: 10,
+    }).decision,
+    "approval_required",
+  );
+  assert.equal(
+    evaluateClerkPolicy(rule, usage, {
+      model: "vendor/model",
+      maximum: usdToPico("5000"),
+      maxTokens: 10,
+    }).decision,
+    "deny",
+  );
+});
 
 
 
