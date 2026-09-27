@@ -167,7 +167,20 @@ test("Clerk denial takes precedence over approval and invalid accounting fails c
     }),
   );
 });
-
+test("mnemonic scanning handles numbered phrases and rejects invalid checksums", () => {
+  const phrase = entropyToMnemonic(new Uint8Array(16), wordlist);
+  assert.equal(findSeedPhrase(phrase)?.kind, "seed");
+  assert.equal(
+    findSeedPhrase(
+      phrase
+        .split(" ")
+        .map((word, i) => `${i + 1}. ${word}`)
+        .join("\n"),
+    )?.kind,
+    "seed",
+  );
+  assert.equal(findSeedPhrase(Array(12).fill("abandon").join(" ")), null);
+});
 
 
 
