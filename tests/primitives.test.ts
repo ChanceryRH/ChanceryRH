@@ -76,7 +76,21 @@ test("canonical records preserve dangerous property names without prototype muta
     '{"a":[null,2],"z":"1"}',
   );
 });
-
+test("canonical records reject ambiguous objects, accessors and cycles", () => {
+  const cycle: any = {};
+  cycle.self = cycle;
+  for (const input of [
+    cycle,
+    new Date(),
+    { n: NaN },
+    {
+      get x() {
+        throw Error("must not run");
+      },
+    },
+  ])
+    assert.throws(() => canonicalJson(input));
+});
 
 
 
