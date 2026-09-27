@@ -142,7 +142,31 @@ test("Clerk caps retain owner-approved decimal precision and exact approval boun
     "deny",
   );
 });
-
+test("Clerk denial takes precedence over approval and invalid accounting fails closed", () => {
+  const rule = rulebookSchema.parse({
+    models: ["model"],
+    perRequestUsd: "1",
+    perHourUsd: "1",
+    perDayUsd: "1",
+    perWeekUsd: "1",
+  });
+  const usage = { active: false, spent: { hour: 0n, day: 0n, week: 0n } };
+  assert.equal(
+    evaluateClerkPolicy(rule, usage, {
+      model: "model",
+      maximum: 1n,
+      maxTokens: 10,
+    }).decision,
+    "deny",
+  );
+  assert.throws(() =>
+    evaluateClerkPolicy(rule, usage, {
+      model: "model",
+      maximum: -1n,
+      maxTokens: 10,
+    }),
+  );
+});
 
 
 
