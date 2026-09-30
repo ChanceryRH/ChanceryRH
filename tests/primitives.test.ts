@@ -241,4 +241,12 @@ test("provider configuration rejects credential-bearing endpoints and missing ga
   assert.throws(() => config({ PROVIDER_REASONING_MODE: "guess" }));
   assert.equal(config({}).providerBaseUrl, "");
 });
-
+test("model capacity follows catalog bounds and UTF-8 estimates remain conservative", () => {
+  assert.equal(
+    chatLimits({ max_output_tokens: 1024, context_length: 512 })
+      .maxOutputTokens,
+    256,
+  );
+  assert.equal(chatLimits().outputLimitKnown, false);
+  assert.equal(contextEstimate([{ content: "😀" }]), 20);
+});
