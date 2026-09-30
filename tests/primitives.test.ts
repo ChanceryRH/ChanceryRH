@@ -197,7 +197,16 @@ test("private-key checks verify checksums and reject zero scalars", () => {
   assert.equal(findHexKey(`private key: ${value}`)?.kind, "hex");
   assert.equal(findHexKey(`transaction hash: ${value}`), null);
 });
-
+test("passkey origins require secure schemes even on localhost", () => {
+  assert(passkeysAvailable({ origin: "http://localhost:5180" }));
+  assert(passkeysAvailable({ origin: "https://chancery.example" }));
+  for (const origin of [
+    "ftp://localhost",
+    "https://user:pass@chancery.example",
+    "http://127.0.0.1",
+  ])
+    assert.equal(passkeysAvailable({ origin }), false);
+});
 
 
 
