@@ -220,6 +220,18 @@ test("passkey responses reject arrays and noncanonical encodings; counters are b
   assert.equal(counterRegressed(1, 1), true);
   assert.equal(counterRegressed(0, NaN), true);
 });
-
+test("provider usage normalization is opt-in, immutable and idempotent", () => {
+  const usage = {
+    prompt_tokens: 10,
+    completion_tokens: 20,
+    total_tokens: 35,
+    completion_tokens_details: { reasoning_tokens: 5 },
+  };
+  assert.equal(normalizeProviderUsage(usage), usage);
+  const normalized = normalizeProviderUsage(usage, "exclusive");
+  assert.equal(normalized.completion_tokens, 25);
+  assert.equal(usage.completion_tokens, 20);
+  assert.equal(normalizeProviderUsage(normalized, "exclusive"), normalized);
+});
 
 
