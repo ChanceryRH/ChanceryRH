@@ -207,7 +207,19 @@ test("passkey origins require secure schemes even on localhost", () => {
   ])
     assert.equal(passkeysAvailable({ origin }), false);
 });
-
+test("passkey responses reject arrays and noncanonical encodings; counters are bounded", () => {
+  assert.equal(
+    cleanResponse(
+      { id: "a", rawId: "a", type: "public-key", response: {} },
+      "get",
+    ),
+    null,
+  );
+  assert.equal(cleanResponse([], "create"), null);
+  assert.equal(counterRegressed(0, 0), false);
+  assert.equal(counterRegressed(1, 1), true);
+  assert.equal(counterRegressed(0, NaN), true);
+});
 
 
 
