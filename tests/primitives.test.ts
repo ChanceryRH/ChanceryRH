@@ -233,5 +233,12 @@ test("provider usage normalization is opt-in, immutable and idempotent", () => {
   assert.equal(usage.completion_tokens, 20);
   assert.equal(normalizeProviderUsage(normalized, "exclusive"), normalized);
 });
-
+test("provider configuration rejects credential-bearing endpoints and missing gateway URLs", () => {
+  assert.throws(() => config({ PROVIDER_API_KEY: "fixture-only" }));
+  assert.throws(() =>
+    config({ PROVIDER_BASE_URL: "https://user:secret@gateway.example" }),
+  );
+  assert.throws(() => config({ PROVIDER_REASONING_MODE: "guess" }));
+  assert.equal(config({}).providerBaseUrl, "");
+});
 
