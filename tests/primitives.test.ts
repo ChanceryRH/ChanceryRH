@@ -181,7 +181,22 @@ test("mnemonic scanning handles numbered phrases and rejects invalid checksums",
   );
   assert.equal(findSeedPhrase(Array(12).fill("abandon").join(" ")), null);
 });
-
+test("private-key checks verify checksums and reject zero scalars", () => {
+  function wif(scalar: number) {
+    const payload = new Uint8Array(34);
+    payload[0] = 128;
+    payload[32] = scalar;
+    payload[33] = 1;
+    return base58.encode(
+      new Uint8Array([...payload, ...sha256(sha256(payload)).slice(0, 4)]),
+    );
+  }
+  assert.equal(findPrivateKey(wif(1))?.kind, "key");
+  assert.equal(findPrivateKey(wif(0)), null);
+  const value = "12".repeat(32);
+  assert.equal(findHexKey(`private key: ${value}`)?.kind, "hex");
+  assert.equal(findHexKey(`transaction hash: ${value}`), null);
+});
 
 
 
