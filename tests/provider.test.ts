@@ -62,5 +62,44 @@ test("PROVIDER: explicit reasoning normalization is narrow and idempotent", () =
     20,
   );
 });
-
+test("PROVIDER: SSE uses final cumulative usage once and requires completion marker", async () => {
+  let sent: any;
+  const p = createProvider(cfg, async (url, options) => {
+    sent = { url, options };
+    return sse([
+      {
+        id: "a",
+        choices: [{ delta: { content: "Hello " } }],
+        usage: { cost: 0.1 },
+      },
+      { choices: [{ delta: { content: "world" } }], usage: { cost: 0.2 } },
+    ]);
+  });
+  const result = await p.complete(chat);
+  assert.equal(result.content, "Hello world");
+  assert.equal(result.cost, dollars("0.211"));
+  assert.equal(sent.url, "https://gateway.example.invalid/chat/completions");
+  assert.equal(
+    JSON.parse(sent.options.body).stream_options.include_usage,
+    true,
+  );
+  await assert.rejects(
+    createProvider(cfg, async () =>
+      sse([{ choices: [{ delta: { content: "partial" } }] }], false),
+    ).complete(chat),
+    { code: "provider_interrupted", uncertain: true },
+  );
+  await assert.rejects(
+    createProvider(cfg, async () => new Response("", { status: 429 })).complete(
+      chat,
+    ),
+    { uncertain: false },
+  );
+  await assert.rejects(
+    createProvider(cfg, async () => new Response("", { status: 502 })).complete(
+      chat,
+    ),
+    { uncertain: true },
+  );
+});
 
