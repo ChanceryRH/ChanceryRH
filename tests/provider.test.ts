@@ -41,6 +41,26 @@ test("PROVIDER: explicit total takes precedence and BYOK fee is not treated as f
   assert.equal(reportedCost({ cost: 1 }, null, 550), dollars("1.055"));
   assert.equal(reportedCost({ cost: -1 }, null, 550), null);
 });
-
+test("PROVIDER: explicit reasoning normalization is narrow and idempotent", () => {
+  const usage = {
+    prompt_tokens: 10,
+    completion_tokens: 20,
+    total_tokens: 35,
+    completion_tokens_details: { reasoning_tokens: 5 },
+    extra_properties: { google: {} },
+  };
+  const normalized = normalizeProviderUsage(usage, "exclusive");
+  assert.equal(normalized.completion_tokens, 25);
+  assert.deepEqual(normalizeProviderUsage(normalized, "exclusive"), normalized);
+  assert.equal(
+    normalizeProviderUsage(usage, "inclusive").completion_tokens,
+    20,
+  );
+  assert.equal(
+    normalizeProviderUsage({ ...usage, total_tokens: 30 }, "exclusive")
+      .completion_tokens,
+    20,
+  );
+});
 
 
