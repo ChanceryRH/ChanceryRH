@@ -149,5 +149,33 @@ test("Clerks: approval is content-bound, single-use, and cannot bypass hard caps
   );
   assert.equal(r.calls(), 1);
 });
-
+test("Minutes and token benefits: trusted signatures, encrypted bodies and fee-only discounts", async (t) => {
+  const r = await fixture("minutes,token_benefits");
+  t.after(() => r.db.close());
+  const user = await r.login(),
+    o = await r.office(user.account),
+    minutes = await r.updates.minutes(o.access, {
+      body: "The Office approved its project plan.",
+    });
+  assert(await r.crypto.verify(minutes.envelope));
+  const [row] = await r.db.office(o.id, (q) =>
+    q.query("SELECT * FROM minutes"),
+  );
+  assert(!row.body_enc.includes("project plan"));
+  assert.equal(
+    (await r.updates.listMinutes(o.access))[0].body,
+    "The Office approved its project plan.",
+  );
+  const benefits = await r.updates.benefits(o.access);
+  assert.equal(benefits.tier, 3);
+  assert.equal(benefits.discountPercent, 30);
+  const quote = await r.ledger.quote(o.access, chat),
+    result = await r.ledger.request(o.access, {
+      id: uid("req_"),
+      quoteId: quote.id,
+      chat,
+    });
+  assert.equal(result.chargedUsd, "0.01035");
+  assert.equal(result.receipt.payload.providerUsd, "0.01");
+});
 
