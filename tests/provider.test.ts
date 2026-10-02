@@ -102,4 +102,30 @@ test("PROVIDER: SSE uses final cumulative usage once and requires completion mar
     { uncertain: true },
   );
 });
-
+test("PROVIDER: unpriced models and unverified retention claims are refused", async () => {
+  const p = createProvider(cfg, async () =>
+    Response.json({
+      data: [
+        {
+          id: "valid",
+          type: "chat",
+          pricing: {
+            type: "per_token",
+            currency: "USD",
+            input_per_1M_tokens: 1,
+            output_per_1M_tokens: 2,
+          },
+        },
+        { id: "unknown", type: "chat" },
+      ],
+    }),
+  );
+  assert.equal((await p.catalog()).length, 1);
+  await assert.rejects(p.estimate({ ...chat, model: "unknown" }), {
+    code: "model_unavailable",
+  });
+  await assert.rejects(
+    p.estimate({ ...chat, model: "valid", lane: "zero_retention" }),
+    { code: "privacy_unavailable" },
+  );
+});
