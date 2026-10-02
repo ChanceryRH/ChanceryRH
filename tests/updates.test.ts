@@ -178,4 +178,17 @@ test("Minutes and token benefits: trusted signatures, encrypted bodies and fee-o
   assert.equal(result.chargedUsd, "0.01035");
   assert.equal(result.receipt.payload.providerUsd, "0.01");
 });
-
+test("sealed Rooms refuse inference even for their creator", async (t) => {
+  const r = await fixture("rooms");
+  t.after(() => r.db.close());
+  const user = await r.login(),
+    o = await r.office(user.account),
+    room = await r.rooms.create(o.access, {
+      nameCiphertext: "ZW5jcnlwdGVk",
+      lanePolicy: "sealed",
+    });
+  await assert.rejects(r.ledger.quote(o.access, { ...chat, roomId: room.id }), {
+    code: "sealed_inference_unavailable",
+  });
+  assert.equal(r.calls(), 0);
+});
