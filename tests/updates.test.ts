@@ -85,6 +85,69 @@ test("Rooms: per-device wrapping, authenticated context, and revocation require 
   );
   assert(!JSON.stringify(row).includes("Private room content"));
 });
-
+test("Clerks: approval is content-bound, single-use, and cannot bypass hard caps", async (t) => {
+  const r = await fixture("clerks");
+  t.after(() => r.db.close());
+  const user = await r.login(),
+    o = await r.office(user.account),
+    id = uid("clerk_");
+  await r.db.office(o.id, (q) =>
+    q.query(
+      "INSERT INTO clerks(id,office_id,name,job_enc,monthly_cap_pico,rulebook,model,status,created_by) VALUES($1,$2,'Clerk',$3,$4,$5,$6,'active',$7)",
+      [
+        id,
+        o.id,
+        r.crypto.seal(o.id, `clerk:${id}`, "Summarize tasks"),
+        dollars("1").toString(),
+        JSON.stringify({
+          models: ["test-model"],
+          perRequestUsd: "1",
+          perHourUsd: "1",
+          perDayUsd: "1",
+          perWeekUsd: "1",
+          askAboveUsd: "0",
+          maxTokens: 100,
+        }),
+        chat.model,
+        user.account.id,
+      ],
+    ),
+  );
+  const p = await r.clerks.prepare(o.access, id, chat);
+  assert.equal(p.decision, "approval_required");
+  await assert.rejects(
+    r.clerks.run(o.access, id, { id: uid("req_"), quoteId: p.quote.id, chat }),
+    { code: "approval_required" },
+  );
+  await r.clerks.decide(o.access, p.approvalId!, { approve: true });
+  const first = await r.clerks.run(o.access, id, {
+    id: uid("req_"),
+    quoteId: p.quote.id,
+    chat,
+    approvalId: p.approvalId,
+  });
+  assert.equal(first.status, "complete");
+  const next = await r.clerks.prepare(o.access, id, chat);
+  await assert.rejects(
+    r.clerks.run(o.access, id, {
+      id: uid("req_"),
+      quoteId: next.quote.id,
+      chat,
+      approvalId: p.approvalId,
+    }),
+    { code: "approval_invalid" },
+  );
+  await r.clerks.pause(o.access, id);
+  await assert.rejects(
+    r.clerks.run(o.access, id, {
+      id: uid("req_"),
+      quoteId: next.quote.id,
+      chat,
+      approvalId: next.approvalId,
+    }),
+    { code: "rulebook_denied" },
+  );
+  assert.equal(r.calls(), 1);
+});
 
 
