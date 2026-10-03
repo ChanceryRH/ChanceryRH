@@ -43,7 +43,24 @@ export function useAction() {
   }
   return { busy, error, notice, run, setError, setNotice };
 }
-
+export function Feedback({ action }: { action: ReturnType<typeof useAction> }) {
+  return (
+    <>
+      {action.error && (
+        <div className="notice error" role="alert">
+          <AlertCircle size={17} />
+          <span>{action.error}</span>
+        </div>
+      )}
+      {action.notice && (
+        <div className="notice success" role="status">
+          <CheckCircle2 size={17} />
+          <span>{action.notice}</span>
+        </div>
+      )}
+    </>
+  );
+}
 
 
 
