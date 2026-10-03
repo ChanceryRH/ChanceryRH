@@ -61,7 +61,27 @@ export function Feedback({ action }: { action: ReturnType<typeof useAction> }) {
     </>
   );
 }
-
+export function Button({
+  children,
+  busy = false,
+  kind = "primary",
+  className = "",
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  busy?: boolean;
+  kind?: "primary" | "secondary" | "ghost" | "danger";
+}) {
+  return (
+    <button
+      {...props}
+      disabled={props.disabled || busy}
+      className={`button ${kind} ${className}`}
+    >
+      {busy && <Loader2 size={16} className="spin" />}
+      {children}
+    </button>
+  );
+}
 
 
 
