@@ -99,7 +99,15 @@ export function Field({
     </label>
   );
 }
-
+export function Panel({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return <section className={`panel ${className}`}>{children}</section>;
+}
 
 
 
