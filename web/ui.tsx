@@ -117,7 +117,26 @@ export function Badge({
 }) {
   return <span className={`badge ${tone}`}>{children}</span>;
 }
-
+export function Empty({
+  icon,
+  title,
+  children,
+  action,
+}: {
+  icon?: ReactNode;
+  title: string;
+  children: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="empty">
+      <div className="empty-icon">{icon || <ArrowRight size={24} />}</div>
+      <h2>{title}</h2>
+      <p>{children}</p>
+      {action}
+    </div>
+  );
+}
 
 
 export const submit = (fn: () => void) => (e: FormEvent) => {
