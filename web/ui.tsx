@@ -159,7 +159,44 @@ export function PageTitle({
     </div>
   );
 }
-
+export function Modal({
+  title,
+  children,
+  close,
+}: {
+  title: string;
+  children: ReactNode;
+  close: () => void;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    ref.current?.showModal();
+    const element = ref.current;
+    return () => element?.close();
+  }, []);
+  return (
+    <dialog
+      ref={ref}
+      className="modal"
+      onCancel={(event) => {
+        event.preventDefault();
+        close();
+      }}
+    >
+      <header>
+        <h2>{title}</h2>
+        <button
+          className="icon-button"
+          aria-label="Close dialog"
+          onClick={close}
+        >
+          <X size={20} />
+        </button>
+      </header>
+      {children}
+    </dialog>
+  );
+}
 export const submit = (fn: () => void) => (e: FormEvent) => {
   e.preventDefault();
   fn();
