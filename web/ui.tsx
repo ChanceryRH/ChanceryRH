@@ -137,7 +137,28 @@ export function Empty({
     </div>
   );
 }
-
+export function PageTitle({
+  eyebrow,
+  title,
+  children,
+  actions,
+}: {
+  eyebrow?: string;
+  title: string;
+  children?: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <div className="page-heading">
+      <div>
+        {eyebrow && <span className="eyebrow">{eyebrow}</span>}
+        <h1>{title}</h1>
+        {children && <p>{children}</p>}
+      </div>
+      {actions && <div className="actions">{actions}</div>}
+    </div>
+  );
+}
 
 export const submit = (fn: () => void) => (e: FormEvent) => {
   e.preventDefault();
