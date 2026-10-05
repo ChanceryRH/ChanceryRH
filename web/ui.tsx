@@ -201,4 +201,17 @@ export const submit = (fn: () => void) => (e: FormEvent) => {
   e.preventDefault();
   fn();
 };
-
+export function JsonDetails({
+  value,
+  label = "Technical details",
+}: {
+  value: unknown;
+  label?: string;
+}) {
+  return (
+    <details className="json-details">
+      <summary>{label}</summary>
+      <pre>{JSON.stringify(value, null, 2)}</pre>
+    </details>
+  );
+}
