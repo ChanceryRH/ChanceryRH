@@ -1,0 +1,10 @@
+{
+  "name": "chancery-website",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node preview-server.mjs",
+    "check": "node --check dist/app.js && node --check dist/card-scenes.js"
+  }
+}
