@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="644" viewBox="0 0 1280 644" role="img" aria-labelledby="title desc">
+  <title id="title">Chancery — From idea to receipt</title>
+  <desc id="desc">Illustrated request flow. Check Office policy, approve the maximum price, run within budget, then record a signed receipt.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#1e2034"/><stop offset="1" stop-color="#171924"/></linearGradient>
+    <linearGradient id="receipt" x2=".8" y2="1"><stop stop-color="#33364f"/><stop offset="1" stop-color="#25283e"/></linearGradient>
+  </defs>
+  <style>
+    .mono{font-family:'SFMono-Regular',Consolas,'Liberation Mono',monospace}
+    .sans{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif}
+    .step2{animation:step2 16s infinite}.step3{animation:step3 16s infinite}.step4{animation:step4 16s infinite}.proof{animation:proof 16s infinite}.cursor{animation:blink 1.2s steps(1) infinite}.progress{animation:progress 16s linear infinite}
+    @keyframes step2{0%,14%{opacity:.7}20%,94%{opacity:1}100%{opacity:.7}}
+    @keyframes step3{0%,30%{opacity:.7}36%,94%{opacity:1}100%{opacity:.7}}
+    @keyframes step4{0%,46%{opacity:.7}52%,94%{opacity:1}100%{opacity:.7}}
+    @keyframes proof{0%,54%{opacity:.7}60%,94%{opacity:1}100%{opacity:.7}}
+    @keyframes blink{50%{opacity:0}}
+    @keyframes progress{0%{width:0}60%,94%{width:1174px}100%{width:0}}
+    @media(prefers-reduced-motion:reduce){.step2,.step3,.step4,.proof,.cursor,.progress{animation:none}}
+  </style>
+  <rect x="1" y="1" width="1278" height="642" rx="18" fill="url(#bg)" stroke="#41435b"/>
+  <path d="M1 69H1279M1 570H1279" stroke="#41435b"/>
+  <g fill="#7d789c"><circle cx="31" cy="35" r="5"/><circle cx="50" cy="35" r="5"/><circle cx="69" cy="35" r="5"/></g>
+  <text class="mono" x="640" y="41" text-anchor="middle" fill="#cfcae5" font-size="14">chancery / the anatomy of a request</text>
+  <text class="mono" x="1228" y="41" text-anchor="end" fill="#9994b5" font-size="11">ILLUSTRATED</text>
+  <g class="mono">
+    <text x="53" y="124" fill="#b8d6c9" font-size="17">office / your-team</text>
+    <rect class="cursor" x="251" y="108" width="9" height="19" fill="#c3b6ef"/>
+    <text x="53" y="158" fill="#9698b4" font-size="14">A good idea, with the right boundaries.</text>
+    <path d="M74 218V498" stroke="#44455e" stroke-dasharray="3 8"/>
+    <g>
+      <rect x="53" y="198" width="43" height="34" rx="7" fill="#3f3657"/><text x="74" y="220" text-anchor="middle" fill="#d1bff0" font-size="14">01</text>
+      <text x="119" y="219" fill="#ede8fb" font-size="20">Check the policy</text>
+      <text x="119" y="250" fill="#a9a9c3" font-size="15">Approved model. Authorized team member.</text>
+    </g>
+    <g class="step2">
+      <rect x="53" y="284" width="43" height="34" rx="7" fill="#3f3657"/><text x="74" y="306" text-anchor="middle" fill="#d1bff0" font-size="14">02</text>
+      <text x="119" y="305" fill="#ede8fb" font-size="20">Approve the quote</text>
+      <text x="119" y="336" fill="#a9a9c3" font-size="15">A signed price ceiling, before the work.</text>
+    </g>
+    <g class="step3">
+      <rect x="53" y="370" width="43" height="34" rx="7" fill="#3f3657"/><text x="74" y="392" text-anchor="middle" fill="#d1bff0" font-size="14">03</text>
+      <text x="119" y="391" fill="#ede8fb" font-size="20">Put AI to work</text>
+      <text x="119" y="422" fill="#a9a9c3" font-size="15">One request. Inside the team’s budget.</text>
+    </g>
+    <g class="step4">
+      <rect x="53" y="456" width="43" height="34" rx="7" fill="#3f3657"/><text x="74" y="478" text-anchor="middle" fill="#d1bff0" font-size="14">04</text>
+      <text x="119" y="477" fill="#ede8fb" font-size="20">Keep the receipt</text>
+      <text x="119" y="508" fill="#a9a9c3" font-size="15">Signed. Recorded. Ready to verify.</text>
+    </g>
+  </g>
+  <g class="sans">
+    <rect x="816" y="160" width="390" height="353" rx="14" fill="#1b1d2c" stroke="#43445d" transform="rotate(3 1011 336)"/>
+    <rect x="790" y="146" width="390" height="353" rx="14" fill="url(#receipt)" stroke="#65637e"/>
+    <text x="820" y="183" fill="#aaa9c6" font-size="11" letter-spacing="2">CHANCERY / LEDGER</text>
+    <text x="820" y="225" fill="#f1ecff" font-size="29" font-weight="500">A record you can check.</text>
+    <path d="M820 251H1150" stroke="#52536f"/>
+    <text x="820" y="289" fill="#a9aac4" font-size="15">Work</text><text x="1150" y="289" text-anchor="end" fill="#e1ddef" font-size="15">AI request</text>
+    <text x="820" y="326" fill="#a9aac4" font-size="15">Cost</text><text x="1150" y="326" text-anchor="end" fill="#e1ddef" font-size="15">Recorded charge</text>
+    <text x="820" y="363" fill="#a9aac4" font-size="15">Signature</text><text x="1150" y="363" text-anchor="end" fill="#d0c1f0" font-size="15">Ed25519</text>
+    <path d="M820 389H1150" stroke="#52536f"/>
+    <g class="proof">
+      <circle cx="833" cy="434" r="13" fill="#a7d1c0" fill-opacity=".12"/>
+      <path d="m827 434 4 4 8-9" stroke="#b5d9c9" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <text x="858" y="440" fill="#b8dccb" font-size="16">Verify the signature. Export the record.</text>
+    </g>
+  </g>
+  <rect x="53" y="545" width="1174" height="2" rx="1" fill="#37374e"/>
+  <rect class="progress" x="53" y="545" width="1174" height="2" rx="1" fill="#b6a5e2"/>
+  <text class="mono" x="53" y="614" fill="#aaa8c2" font-size="13">YOUR TEAM SETS THE RULES.</text>
+  <text class="mono" x="1227" y="614" text-anchor="end" fill="#c8bddf" font-size="13">THE WORK LEAVES A TRAIL.</text>
+</svg>

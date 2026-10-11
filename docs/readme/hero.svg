@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title desc">
+  <title id="title">Chancery — Big ideas. Clear boundaries.</title>
+  <desc id="desc">A lavender Chancery emblem orbits a team workspace against a midnight background. An AI office for teams that want to move together.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#151626"/><stop offset="1" stop-color="#252741"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#8f8ad4" stop-opacity=".3"/><stop offset="1" stop-color="#8f8ad4" stop-opacity="0"/></radialGradient>
+    <linearGradient id="metal" x2=".85" y2="1"><stop stop-color="#f3f0ff"/><stop offset=".4" stop-color="#c1b9f2"/><stop offset="1" stop-color="#777cae"/></linearGradient>
+    <linearGradient id="card" x2="1" y2="1"><stop stop-color="#393b56"/><stop offset="1" stop-color="#23263b"/></linearGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0V48" fill="none" stroke="#bab5e6" stroke-opacity=".05"/></pattern>
+    <clipPath id="bounds"><rect width="1280" height="640" rx="20"/></clipPath>
+  </defs>
+  <g clip-path="url(#bounds)">
+    <path fill="url(#bg)" d="M0 0h1280v640H0z"/>
+    <path fill="url(#grid)" d="M0 0h1280v640H0z"/>
+    <ellipse cx="973" cy="295" rx="430" ry="430" fill="url(#glow)"/>
+    <path d="M56 103H1224M56 556H1224" stroke="#b8b6df" stroke-opacity=".16"/>
+    <g transform="translate(52 35) scale(.085)">
+      <g transform="translate(-240 -270)" fill="#d6dbf5"><path d="M398 382C469 274 580 276 665 345L571 418C513 368 456 367 398 382C324 414 278 473 278 551C278 658 354 731 455 724C539 724 590 669 679 593C625 639 581 655 539 652C445 649 370 571 371 472C371 439 381 408 398 382Z"/><path d="m672 476 29 36-29 36-28-36z"/></g>
+    </g>
+    <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+      <text x="111" y="65" fill="#f1eefb" font-size="23" font-weight="600" letter-spacing="3">CHANCERY</text>
+      <text x="1224" y="63" text-anchor="end" fill="#b3b3ce" font-size="14" letter-spacing="3">THE TEAM AI OFFICE</text>
+      <text x="64" y="171" fill="#b2aadf" font-size="13" letter-spacing="3">A LITTLE ORDER. A LOT OF POSSIBILITY.</text>
+      <text x="59" y="273" fill="#f5f2fc" font-size="82" font-weight="600" letter-spacing="-4">Big ideas.</text>
+      <text x="59" y="365" fill="#c3b8ef" font-size="82" font-weight="600" letter-spacing="-4">Clear boundaries.</text>
+      <text x="64" y="426" fill="#c3c3d8" font-size="21">An AI office for teams that want</text>
+      <text x="64" y="458" fill="#c3c3d8" font-size="21">to move together.</text>
+      <rect x="64" y="492" width="230" height="34" rx="17" fill="#d5c9fb" fill-opacity=".09" stroke="#d5c9fb" stroke-opacity=".22"/>
+      <circle cx="83" cy="509" r="4" fill="#b6d8cd"/>
+      <text x="97" y="514" fill="#ded7f5" font-size="13">YOUR PEOPLE. YOUR RULES.</text>
+      <text x="64" y="598" fill="#acabc4" font-size="13" letter-spacing="2">THINK TOGETHER</text>
+      <text x="454" y="598" fill="#acabc4" font-size="13" letter-spacing="2">WORK WITH CONTROL</text>
+      <text x="970" y="598" fill="#acabc4" font-size="13" letter-spacing="2">KEEP THE RECEIPTS</text>
+    </g>
+    <g fill="none" stroke="#c4c0ef">
+      <ellipse cx="998" cy="311" rx="174" ry="174" stroke-opacity=".1"/>
+      <ellipse cx="998" cy="311" rx="212" ry="212" stroke-opacity=".11" stroke-dasharray="2 12"/>
+      <ellipse cx="998" cy="311" rx="249" ry="104" transform="rotate(-37 998 311)" stroke-opacity=".22"/>
+    </g>
+    <circle cx="1135" cy="178" r="5" fill="#e2d6ff"/>
+    <circle cx="825" cy="362" r="4" fill="#a6c9bd"/>
+    <g transform="translate(878 186) scale(.49)">
+      <g transform="translate(-240 -270)" fill="url(#metal)"><path d="M398 382C469 274 580 276 665 345L571 418C513 368 456 367 398 382C324 414 278 473 278 551C278 658 354 731 455 724C539 724 590 669 679 593C625 639 581 655 539 652C445 649 370 571 371 472C371 439 381 408 398 382Z"/><path d="m672 476 29 36-29 36-28-36z"/></g>
+    </g>
+    <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+      <rect x="1021" y="126" width="187" height="65" rx="12" fill="url(#card)" stroke="#666783" stroke-opacity=".7"/>
+      <text x="1041" y="150" fill="#aaaac7" font-size="10" letter-spacing="2">ACCESS / INTENTIONAL</text>
+      <text x="1041" y="175" fill="#e0dcf3" font-size="17">Your team, invited.</text>
+      <rect x="818" y="433" width="293" height="69" rx="12" fill="url(#card)" stroke="#666783" stroke-opacity=".7"/>
+      <path d="m839 466 6 6 11-13" fill="none" stroke="#b4d6c9" stroke-width="2" stroke-linecap="round"/>
+      <text x="870" y="458" fill="#aaaac7" font-size="10" letter-spacing="2">LEDGER / VERIFIABLE</text>
+      <text x="870" y="483" fill="#e0dcf3" font-size="17">Good work leaves a trail.</text>
+    </g>
+  </g>
+</svg>

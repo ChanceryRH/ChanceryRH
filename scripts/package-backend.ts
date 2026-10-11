@@ -58,7 +58,6 @@ for (const path of [
   "tests",
   "scripts",
   "docs",
-  ".railway",
   "contracts/src",
   "contracts/test",
   "contracts/artifacts",
@@ -73,7 +72,7 @@ for (const path of [
   ".dockerignore",
   ".gitignore",
   ".env.example",
-  "README.backend.md",
+  "README.md",
   "THIRD_PARTY_NOTICES.md",
 ])
   await add(path);

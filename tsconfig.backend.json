@@ -1,14 +1,15 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
   "include": [
     "server",
     "shared",
     "tests",
     "scripts",
-    "packages/client",
-    ".railway/railway.ts"
+    "packages/client"
   ]
 }
