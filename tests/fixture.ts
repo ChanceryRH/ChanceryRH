@@ -135,6 +135,7 @@ export async function fixture(released = "", databaseUrl = "pglite://memory") {
         rawUsage: { prompt_tokens: 12, completion_tokens: 5 },
         usage: { prompt_tokens: 12, completion_tokens: 5 },
         cost,
+        costBasis: cost === null ? "unknown" : "reported",
       };
     },
   };

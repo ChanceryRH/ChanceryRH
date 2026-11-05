@@ -2,9 +2,54 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { fixture, chat } from "./fixture.ts";
 import { uid, envelopeLeaf, MerkleTree } from "../server/crypto.ts";
-import { ProviderFailure } from "../server/provider.ts";
+import { ProviderFailure, createProvider } from "../server/provider.ts";
 import { dollars } from "../shared/money.ts";
 import { createJobs } from "../server/jobs.ts";
+test("billing: published rates are frozen in the quote and signed into the final receipt", async (t) => {
+  const r = await fixture();
+  t.after(() => r.db.close());
+  const prices = {
+    type: "per_token",
+    currency: "USD",
+    input_per_1M_tokens: 0.15825,
+    output_per_1M_tokens: 0.633,
+  };
+  const estimate = r.provider.estimate;
+  r.provider.estimate = async (input) => ({
+    ...(await estimate(input)),
+    model: { pricing: prices },
+  });
+  let calls = 0;
+  r.provider.complete = createProvider(r.cfg, async () => {
+    calls++;
+    return new Response(
+      `data: ${JSON.stringify({
+        id: "priced",
+        choices: [{ delta: { content: "OK" } }],
+        usage: { prompt_tokens: 12, completion_tokens: 2, total_tokens: 14 },
+      })}\n\ndata: [DONE]\n\n`,
+    );
+  }).complete;
+  const user = await r.login(),
+    o = await r.office(user.account);
+  const quote = await r.ledger.quote(o.access, chat),
+    id = uid("req_");
+  prices.input_per_1M_tokens = 100;
+  const result = await r.ledger.request(o.access, {
+    id,
+    quoteId: quote.id,
+    chat,
+  });
+  assert.equal(result.status, "complete");
+  assert.equal(result.receipt.payload.providerUsd, "0.000003165");
+  assert.equal(result.receipt.payload.platformFeeUsd, "0.00000015825");
+  assert.equal(result.receipt.payload.costBasis, "published_rates");
+  assert.equal(result.receipt.payload.pricing.input_per_1M_tokens, "0.15825");
+  assert.equal(result.chargedUsd, "0.000004");
+  assert(await r.crypto.verify(result.receipt));
+  await r.ledger.request(o.access, { id, quoteId: quote.id, chat });
+  assert.equal(calls, 1);
+});
 test("billing: exact quote, signed receipt, replay and content binding", async (t) => {
   const r = await fixture();
   t.after(() => r.db.close());

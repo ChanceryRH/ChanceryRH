@@ -9,6 +9,7 @@ import {
 } from "../shared/money.ts";
 import { checkGuards } from "../shared/guards.ts";
 import {
+  catalogPricing,
   chatSchema,
   ProviderFailure,
   type Provider,
@@ -168,6 +169,7 @@ export function createLedger(
       maximumUsd: picoToUsdString(maximum),
       discountBps,
       platformFeeBps: 500,
+      pricing: catalogPricing(estimate.model.pricing),
       expiresAt,
       estimate: true,
     });
@@ -442,7 +444,11 @@ export function createLedger(
     const r = reserved.r!,
       quoteRecord = reserved.quote!;
     try {
-      const result = await provider.complete(chat, onDelta);
+      const result = await provider.complete(
+        chat,
+        onDelta,
+        quoteRecord.envelope.payload.pricing,
+      );
       await db.office(a.office.id, async (q) => {
         await q.query("SELECT * FROM office_locks FOR UPDATE");
         const maximum = BigInt(r.reserved_pico),
@@ -466,6 +472,11 @@ export function createLedger(
           charged,
           {
             providerId: result.id,
+            costBasis: result.costBasis,
+            pricing:
+              result.costBasis === "published_rates"
+                ? quoteRecord.envelope.payload.pricing
+                : null,
             providerUsd:
               providerCost === null ? null : picoToUsdString(providerCost),
             platformFeeUsd: picoToUsdString(fee),

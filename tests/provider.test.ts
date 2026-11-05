@@ -1,13 +1,131 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { config } from "../server/config.ts";
-import { createProvider, reportedCost } from "../server/provider.ts";
+import {
+  createProvider,
+  reportedCost,
+  catalogCost,
+  catalogPricing,
+} from "../server/provider.ts";
 import { normalizeProviderUsage } from "../shared/provider-usage.ts";
 import { dollars } from "../shared/money.ts";
 import { chat } from "./fixture.ts";
 const cfg = config({
   PROVIDER_API_KEY: "test-only",
   PROVIDER_BASE_URL: "https://gateway.example.invalid",
+});
+const prices = {
+  type: "per_token",
+  currency: "USD",
+  input_per_1M_tokens: 0.15825,
+  output_per_1M_tokens: 0.633,
+  cache_read_per_1M_tokens: 0.079125,
+  cache_write_per_1M_tokens: 0.15825,
+  reasoning_per_1M_tokens: 0.633,
+};
+const meteredUsage = {
+  prompt_tokens: 12,
+  completion_tokens: 2,
+  total_tokens: 14,
+  prompt_tokens_details: { cached_tokens: 0, cache_write_tokens: 0 },
+  completion_tokens_details: { reasoning_tokens: 0 },
+};
+test("billing rates: published prices reproduce the recorded charge without adding supplier fees twice", () => {
+  assert.equal(catalogCost(meteredUsage, prices), dollars("0.000003165"));
+  assert.equal(
+    catalogCost(
+      { ...meteredUsage, prompt_tokens_details: { cached_tokens: 4 } },
+      prices,
+    ),
+    dollars("0.0000028485"),
+  );
+  assert.equal(
+    catalogCost(
+      { ...meteredUsage, completion_tokens_details: { reasoning_tokens: 1 } },
+      { ...prices, reasoning_per_1M_tokens: 1 },
+    ),
+    dollars("0.000003532"),
+  );
+  assert.equal(
+    catalogCost(
+      {
+        ...meteredUsage,
+        prompt_tokens_details: { cached_tokens: 0, cache_write_tokens: 3 },
+      },
+      { ...prices, cache_write_per_1M_tokens: 1 },
+    ),
+    dollars("0.00000569025"),
+  );
+  assert.equal(
+    catalogCost(
+      { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+      prices,
+    ),
+    0n,
+  );
+});
+test("billing rates: incomplete or ambiguous metering cannot finalize a charge", () => {
+  for (const usage of [
+    null,
+    {},
+    { ...meteredUsage, total_tokens: 15 },
+    { ...meteredUsage, prompt_tokens_details: {} },
+    { ...meteredUsage, prompt_tokens: 1.2 },
+    { ...meteredUsage, is_byok: true },
+    { ...meteredUsage, prompt_tokens_details: { cached_tokens: 13 } },
+    {
+      ...meteredUsage,
+      prompt_tokens_details: { cached_tokens: 10, cache_write_tokens: 3 },
+    },
+    { ...meteredUsage, completion_tokens_details: { reasoning_tokens: 3 } },
+    { ...meteredUsage, prompt_tokens_details: { audio_tokens: 1 } },
+    { ...meteredUsage, search_requests: 1 },
+    { ...meteredUsage, completion_tokens_details: { reasoning_tokens: -1 } },
+  ]) {
+    assert.equal(catalogCost(usage, prices), null);
+  }
+  assert.equal(
+    catalogCost(
+      { ...meteredUsage, prompt_tokens_details: { cached_tokens: 1 } },
+      { ...prices, cache_read_per_1M_tokens: undefined },
+    ),
+    null,
+  );
+  assert.equal(catalogPricing({ ...prices, currency: "EUR" }), null);
+  assert.equal(catalogPricing({ ...prices, request_fee: 1 }), null);
+  assert.equal(catalogPricing({ ...prices, input_per_1M_tokens: -1 }), null);
+  assert.equal(catalogCost(meteredUsage, null), null);
+});
+test("billing rates: streaming uses frozen quote rates, preserves reported cost, and rejects interruption", async () => {
+  const snapshot = catalogPricing(prices)!;
+  const p = createProvider(cfg, async () =>
+    sse([
+      {
+        id: "billing",
+        choices: [{ delta: { content: "OK" } }],
+        usage: meteredUsage,
+      },
+    ]),
+  );
+  const result = await p.complete(chat, undefined, snapshot);
+  assert.equal(result.cost, dollars("0.000003165"));
+  assert.equal(result.costBasis, "published_rates");
+  assert.equal((await p.complete(chat)).cost, null);
+  const reported = await createProvider(cfg, async () =>
+    sse([{ usage: meteredUsage, cost: 0.000001 }]),
+  ).complete(chat, undefined, snapshot);
+  assert.equal(reported.cost, dollars("0.000001"));
+  assert.equal(reported.costBasis, "reported");
+  const invalid = await createProvider(cfg, async () =>
+    sse([{ usage: meteredUsage, cost: -1 }]),
+  ).complete(chat, undefined, snapshot);
+  assert.equal(invalid.cost, null);
+  await assert.rejects(
+    createProvider(cfg, async () =>
+      sse([{ usage: meteredUsage }], false),
+    ).complete(chat, undefined, snapshot),
+    { code: "provider_interrupted", uncertain: true },
+  );
 });
 function sse(events: any[], done = true) {
   return new Response(

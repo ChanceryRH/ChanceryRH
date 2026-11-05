@@ -42,6 +42,137 @@ export function reportedCost(usage: any, explicit: unknown, feeBps: number) {
     ? cost + mulBps(cost, feeBps)
     : null;
 }
+const rateFields = [
+  "input_per_1M_tokens",
+  "output_per_1M_tokens",
+  "cache_read_per_1M_tokens",
+  "cache_write_per_1M_tokens",
+  "reasoning_per_1M_tokens",
+  "image_input_per_1M_tokens",
+] as const;
+export type CatalogPricing = { type: "per_token"; currency: "USD" } & Partial<
+  Record<(typeof rateFields)[number], string>
+>;
+
+/** Freeze only the published USD token rates into the signed quote. */
+export function catalogPricing(value: any): CatalogPricing | null {
+  if (
+    !value ||
+    value.type !== "per_token" ||
+    value.currency !== "USD" ||
+    Object.keys(value).some(
+      (k) => !["type", "currency", ...rateFields].includes(k),
+    )
+  )
+    return null;
+  const result: CatalogPricing = { type: "per_token", currency: "USD" };
+  for (const field of rateFields) {
+    if (value[field] === undefined || value[field] === null) continue;
+    const rate = providerDollars(value[field]);
+    if (rate === null) return null;
+    result[field] = picoToUsdString(rate);
+  }
+  return result.input_per_1M_tokens !== undefined &&
+    result.output_per_1M_tokens !== undefined
+    ? result
+    : null;
+}
+
+/** Text-only usage at the quote's rates; unsupported usage remains pending. */
+export function catalogCost(usage: any, pricing: unknown): bigint | null {
+  const rates = catalogPricing(pricing);
+  if (!rates || !usage || usage.is_byok === true) return null;
+  const permitted = [
+    "prompt_tokens",
+    "completion_tokens",
+    "total_tokens",
+    "prompt_tokens_details",
+    "completion_tokens_details",
+    "extra_properties",
+    "is_byok",
+  ];
+  if (Object.keys(usage).some((k) => !permitted.includes(k))) return null;
+  const input = usage.prompt_tokens,
+    output = usage.completion_tokens,
+    total = usage.total_tokens;
+  if (
+    ![input, output, total].every((n) => Number.isSafeInteger(n) && n >= 0) ||
+    !Number.isSafeInteger(input + output) ||
+    total !== input + output
+  )
+    return null;
+  const prompt = usage.prompt_tokens_details ?? {},
+    completion = usage.completion_tokens_details ?? {};
+  if (
+    typeof prompt !== "object" ||
+    typeof completion !== "object" ||
+    Array.isArray(prompt) ||
+    Array.isArray(completion)
+  )
+    return null;
+  for (const [details, allowed] of [
+    [prompt, ["cached_tokens", "cache_write_tokens"]],
+    [completion, ["reasoning_tokens"]],
+  ] as const) {
+    if (
+      Object.entries(details).some(
+        ([k, v]) => !(allowed as readonly string[]).includes(k) && v !== 0,
+      )
+    )
+      return null;
+  }
+  const read = prompt.cached_tokens ?? 0,
+    write = prompt.cache_write_tokens ?? 0,
+    reasoning = completion.reasoning_tokens ?? 0;
+  // A missing discount count is not proof that every token used the base rate.
+  for (const [count, subtotal, rate, base] of [
+    [
+      prompt.cached_tokens,
+      input,
+      rates.cache_read_per_1M_tokens,
+      rates.input_per_1M_tokens,
+    ],
+    [
+      prompt.cache_write_tokens,
+      input,
+      rates.cache_write_per_1M_tokens,
+      rates.input_per_1M_tokens,
+    ],
+    [
+      completion.reasoning_tokens,
+      output,
+      rates.reasoning_per_1M_tokens,
+      rates.output_per_1M_tokens,
+    ],
+  ]) {
+    if (subtotal && count == null && rate !== undefined && rate !== base)
+      return null;
+  }
+  if (
+    ![read, write, reasoning].every((n) => Number.isSafeInteger(n) && n >= 0) ||
+    !Number.isSafeInteger(read + write) ||
+    read + write > input ||
+    reasoning > output
+  )
+    return null;
+  const portions = [
+    [input - read - write, "input_per_1M_tokens"],
+    [read, "cache_read_per_1M_tokens"],
+    [write, "cache_write_per_1M_tokens"],
+    [output - reasoning, "output_per_1M_tokens"],
+    [reasoning, "reasoning_per_1M_tokens"],
+  ] as const;
+  let numerator = 0n;
+  for (const [tokens, field] of portions) {
+    if (!tokens) continue;
+    const rate = providerDollars(rates[field]);
+    if (rate === null) return null;
+    numerator += BigInt(tokens) * rate;
+  }
+  // Published rates include supplier fees; add no second supplier markup.
+  return (numerator + 999999n) / 1000000n;
+}
+
 async function boundedJson(response: Response, maximum = 4_000_000) {
   assert(
     response.ok && response.body,
@@ -150,7 +281,12 @@ export function createProvider(cfg: Config, fetcher: typeof fetch = fetch) {
     const providerMaximum = raw + mulBps(raw, cfg.providerFeeBps + 1000);
     return { providerMaximum, inputTokensEstimate: tokens, model };
   }
-  async function complete(input: ChatInput, onDelta?: (text: string) => void) {
+  async function complete(
+    input: ChatInput,
+    onDelta?: (text: string) => void,
+    quotedPricing?: unknown,
+  ) {
+    const pricing = catalogPricing(quotedPricing);
     assert(
       cfg.providerKey,
       503,
@@ -240,13 +376,29 @@ export function createProvider(cfg: Config, fetcher: typeof fetch = fetch) {
         await reader.cancel().catch(() => {});
       }
       if (!done) throw new ProviderFailure("provider_interrupted", true);
+      const usage = normalizeProviderUsage(rawUsage, cfg.reasoningMode);
+      const reported = reportedCost(rawUsage, explicit, cfg.providerFeeBps);
+      const hasReportedAmount =
+        explicit != null ||
+        rawUsage?.cost != null ||
+        rawUsage?.cost_details != null;
+      const calculated =
+        reported === null && !hasReportedAmount
+          ? catalogCost(usage, pricing)
+          : null;
       return {
         content,
         reasoning,
         id,
         rawUsage,
-        usage: normalizeProviderUsage(rawUsage, cfg.reasoningMode),
-        cost: reportedCost(rawUsage, explicit, cfg.providerFeeBps),
+        usage,
+        cost: reported ?? calculated,
+        costBasis:
+          reported !== null
+            ? ("reported" as const)
+            : calculated !== null
+              ? ("published_rates" as const)
+              : ("unknown" as const),
       };
     } catch (error) {
       if (error instanceof ProviderFailure) throw error;
