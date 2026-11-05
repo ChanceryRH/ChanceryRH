@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "chainId": 4663,
+  "registry": "REPLACE_WITH_CONFIRMED_REGISTRY",
+  "settlementLog": "REPLACE_WITH_CONFIRMED_LOG",
+  "administrator": "REPLACE_WITH_APPROVED_ADMIN_MULTISIG",
+  "treasury": "REPLACE_WITH_APPROVED_TREASURY_MULTISIG",
+  "operator": "REPLACE_WITH_GAS_ONLY_OPERATOR",
+  "token": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+  "allowanceModule": "0xAA46724893dedD72658219405185Fb0Fc91e091C",
+  "sourceSha256": "REPLACE_WITH_SOURCE_SHA256",
+  "registryArtifactSha256": "REPLACE_WITH_REGISTRY_ARTIFACT_SHA256",
+  "logArtifactSha256": "REPLACE_WITH_LOG_ARTIFACT_SHA256",
+  "administratorSafe": { "owners": ["REPLACE_WITH_OWNER_1", "REPLACE_WITH_OWNER_2", "REPLACE_WITH_OWNER_3"], "threshold": 2 },
+  "treasurySafe": { "owners": ["REPLACE_WITH_OWNER_1", "REPLACE_WITH_OWNER_2", "REPLACE_WITH_OWNER_3"], "threshold": 2 },
+  "minimumOperatorWei": "1000000000000000"
+}

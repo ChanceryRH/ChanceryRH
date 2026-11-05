@@ -82,8 +82,8 @@ test("Passkeys: complete registration and authentication verify origin, user ver
     .set("Origin", r.cfg.origin)
     .set("X-CSRF-Token", registered.body.csrfToken)
     .send({});
-  async function assertion(counter: number, origin = r.cfg.origin, flags = 5) {
-    const o = await agent
+  async function assertion(counter: number, origin = r.cfg.origin, flags = 5, signer = pair.privateKey, clientAgent = agent) {
+    const o = await clientAgent
         .post("/api/auth/passkey/login/options")
         .set("Origin", r.cfg.origin)
         .send({}),
@@ -101,9 +101,9 @@ test("Passkeys: complete registration and authentication verify origin, user ver
       signature = sign(
         "sha256",
         Buffer.concat([data, sha(c)]),
-        pair.privateKey,
+        signer,
       );
-    return agent
+    return clientAgent
       .post("/api/auth/passkey/login/verify")
       .set("Origin", r.cfg.origin)
       .send({
@@ -117,7 +117,6 @@ test("Passkeys: complete registration and authentication verify origin, user ver
             authenticatorData: data.toString("base64url"),
             clientDataJSON: c.toString("base64url"),
             signature: signature.toString("base64url"),
-            userHandle: options.body.options.user.id,
           },
         },
       });
@@ -126,4 +125,38 @@ test("Passkeys: complete registration and authentication verify origin, user ver
   assert.equal((await assertion(1)).status, 401);
   assert.equal((await assertion(2, "https://evil.example")).status, 401);
   assert.equal((await assertion(2, r.cfg.origin, 1)).status, 401);
+  const attacker = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+  const attackerAgent = supertest.agent(r.app);
+  const before = await r.db.query("SELECT counter,failures,locked_until FROM passkeys WHERE id=$1", [id]);
+  for (let i = 0; i < 5; i++)
+    assert.equal((await assertion(2, r.cfg.origin, 5, attacker.privateKey, attackerAgent)).status, 401);
+  assert.deepEqual(await r.db.query("SELECT counter,failures,locked_until FROM passkeys WHERE id=$1", [id]), before);
+  assert.equal((await assertion(2)).status, 200, "invalid assertions cannot lock the genuine credential");
+  // Credentials locked by an older server version also recover without waiting.
+  await r.db.query("UPDATE passkeys SET failures=99,locked_until=now()+interval '15 minutes' WHERE id=$1", [id]);
+  assert.equal((await assertion(3)).status, 200);
+  const [recovered] = await r.db.query("SELECT failures,locked_until FROM passkeys WHERE id=$1", [id]);
+  assert.equal(recovered.failures, 0);
+  assert.equal(recovered.locked_until, null);
+});
+
+test("Passkeys: authentication throttling rejects excess client requests before issuing challenges", async (t) => {
+  const r = await fixture();
+  t.after(() => r.db.close());
+  // Simulate the deployment's trusted single proxy; forwarding headers are only
+  // trusted because this test explicitly configures that proxy boundary.
+  r.app.set("trust proxy", 1);
+  const attacker = supertest(r.app);
+  for (let i = 0; i < 40; i++) {
+    const result = await attacker.post("/api/auth/passkey/login/options")
+      .set("Origin", r.cfg.origin).set("X-Forwarded-For", "192.0.2.10").send({});
+    assert.equal(result.status, 200);
+  }
+  const denied = await attacker.post("/api/auth/passkey/login/options")
+    .set("Origin", r.cfg.origin).set("X-Forwarded-For", "192.0.2.10").send({});
+  assert.equal(denied.status, 429);
+  assert.equal(denied.headers["retry-after"], "60");
+  const other = await supertest(r.app).post("/api/auth/passkey/login/options")
+    .set("Origin", r.cfg.origin).set("X-Forwarded-For", "192.0.2.20").send({});
+  assert.equal(other.status, 200);
 });

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity 0.8.38;
 
 interface IAllowanceModule {
     function executeAllowanceTransfer(address safe, address token, address payable to, uint96 amount,
@@ -39,6 +39,8 @@ contract SettlementDelegate {
     constructor(address registry_, address safe_, bytes32 officeId_, bytes32 actorId_) {
         registry = ChanceryRegistry(registry_); safe = safe_; officeId = officeId_; actorId = actorId_;
     }
+    // The lock spans every external call; the balance delta intentionally requires exact transfer.
+    // slither-disable-next-line reentrancy-balance,reentrancy-no-eth
     function settle(bytes32 batchId, uint64 day, uint32 expectedPeriod, bytes32 receiptRoot,
         uint32 receiptCount, uint96 amount) external {
         require(msg.sender == registry.operator(), "operator only");

@@ -15,9 +15,13 @@ contract TokenMock {
 }
 contract SafeMock {function getThreshold() external pure returns(uint256){return 1;}}
 contract ModuleMock is IAllowanceModule {
+    bytes public callback;
+    bool public callbackSucceeded;
+    bytes public callbackResult;
     mapping(address=>mapping(address=>uint96)) public caps;
     mapping(address=>mapping(address=>uint96)) public spent;
     mapping(address=>mapping(address=>uint32)) public starts;
+    function setCallback(bytes calldata data) external {callback=data;}
     function set(address safe,address delegate,uint96 amount,uint32 start) external {caps[safe][delegate]=amount;starts[safe][delegate]=start;spent[safe][delegate]=0;}
     function getTokenAllowance(address safe,address delegate,address) public view returns(uint256[5] memory a){
         uint32 start=starts[safe][delegate];uint96 used=spent[safe][delegate];
@@ -28,6 +32,7 @@ contract ModuleMock is IAllowanceModule {
         require(msg.sender==delegate && signature.length==0 && paymentToken==address(0) && payment==0,"signature");
         uint256[5] memory a=getTokenAllowance(safe,delegate,token);
         require(a[1]+amount<=a[0],"allowance");spent[safe][delegate]=uint96(a[1])+amount;starts[safe][delegate]=uint32(a[3]);
+        if(callback.length>0) (callbackSucceeded,callbackResult)=delegate.call(callback);
         TokenMock(token).move(safe,to,amount);
     }
 }
@@ -55,6 +60,19 @@ contract ChanceryRegistryTest is Test {
         assertEq(token.balanceOf(treasury),7e6);assertEq(token.balanceOf(address(safe)),993e6);
         (,uint96 used,)=registry.budget(office);assertEq(used,7e6);
         assertTrue(registry.settlementLog().recorded(keccak256(abi.encode(office,bytes32(0),bytes32(uint256(1))))));
+    }
+    function testReentrantOperatorCannotSettleTwice() public {
+        // Even an authorized contract operator cannot nest settlement during the module call.
+        operator=address(module);registry.setOperator(operator);
+        module.setCallback(abi.encodeCall(delegate.settle,(bytes32(uint256(2)),uint64(block.timestamp/1 days),period,bytes32(uint256(99)),1,7e6)));
+        pay(delegate,bytes32(uint256(1)),7e6);
+        assertFalse(module.callbackSucceeded());
+        assertEq(module.callbackResult(),abi.encodeWithSignature("Error(string)","reentrant"));
+        assertFalse(delegate.settled(bytes32(uint256(2))));
+        (,uint96 used,)=registry.budget(office);assertEq(used,7e6);
+        assertEq(token.balanceOf(treasury),7e6);
+        module.setCallback("");pay(delegate,bytes32(uint256(2)),7e6);
+        assertEq(token.balanceOf(treasury),14e6);
     }
     function testDuplicateRejected() public {pay(delegate,bytes32(uint256(1)),7e6);vm.expectRevert("duplicate batch");pay(delegate,bytes32(uint256(1)),7e6);}
     function testSameReceiptsWithNewBatchRejected() public {

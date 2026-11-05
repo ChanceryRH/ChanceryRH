@@ -1,0 +1,75 @@
+rules:
+  - id: chancery-no-dynamic-code
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: Keep untrusted content as data; dynamic code execution is prohibited.
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+  - id: chancery-no-shell-command
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: Use a fixed executable and an argument array without a shell.
+    pattern-either:
+      - pattern: child_process.exec(...)
+      - pattern: child_process.execSync(...)
+      - pattern: 'child_process.spawn(..., { ..., shell: true, ... })'
+      - pattern: 'child_process.spawnSync(..., { ..., shell: true, ... })'
+      - pattern: 'spawn(..., { ..., shell: true, ... })'
+      - pattern: 'spawnSync(..., { ..., shell: true, ... })'
+      - patterns:
+          - pattern-inside: |
+              import { $METHOD as $FN } from "node:child_process";
+              ...
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(exec|execSync)$
+          - pattern: $FN(...)
+      - patterns:
+          - pattern-inside: |
+              import { $METHOD as $FN } from "node:child_process";
+              ...
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(spawn|spawnSync)$
+          - pattern: '$FN(..., { ..., shell: true, ... })'
+  - id: chancery-verify-tls
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: TLS certificate verification must remain enabled.
+    pattern: '{ ..., rejectUnauthorized: false, ... }'
+  - id: chancery-modern-crypto
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: Use authenticated encryption and modern cryptographic hashes.
+    pattern-either:
+      - pattern: createCipher(...)
+      - pattern: createDecipher(...)
+      - pattern: createHash("md5")
+      - pattern: createHash("sha1")
+  - id: chancery-parameterized-sql
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: Bind request values as SQL parameters; never interpolate them into SQL text.
+    mode: taint
+    pattern-sources:
+      - pattern: $REQ.body
+      - pattern: $REQ.query
+      - pattern: $REQ.params
+    pattern-sinks:
+      - patterns:
+          - pattern: $DB.query($SQL, ...)
+          - focus-metavariable: $SQL
+  - id: chancery-no-request-fetch
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: Do not fetch a caller-selected URL; use a validated configured endpoint.
+    mode: taint
+    pattern-sources:
+      - pattern: $REQ.body
+      - pattern: $REQ.query
+      - pattern: $REQ.params
+    pattern-sinks:
+      - patterns:
+          - pattern: fetch($URL, ...)
+          - focus-metavariable: $URL

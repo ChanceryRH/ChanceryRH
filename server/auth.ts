@@ -355,9 +355,7 @@ export function registerAuth(
           [response.id],
         );
         assert(
-          key &&
-            (!key.locked_until ||
-              new Date(key.locked_until).getTime() < Date.now()),
+          key,
           401,
           "passkey_invalid",
           "Passkey could not be verified.",
@@ -404,10 +402,8 @@ export function registerAuth(
         };
       });
     } catch {
-      await db.query(
-        "UPDATE passkeys SET failures=failures+1,locked_until=CASE WHEN failures>=4 THEN now()+interval '15 minutes' ELSE locked_until END WHERE id=$1",
-        [response.id],
-      );
+      // A credential ID is not proof of possession. Failed assertions must not
+      // change its state; the API's client-IP auth limit bounds these requests.
       throw new ApiError(
         401,
         "passkey_invalid",

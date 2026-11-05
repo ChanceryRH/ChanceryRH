@@ -110,6 +110,15 @@ Security lives in how your team signs in, how work is stored, who can approve a 
 
 <img src="web/public/brand/mark.svg" width="44" height="44" alt="" />
 
+<details>
+<summary><strong>Build your Office</strong></summary>
+
+Use the Node version in `.nvmrc`, then run `npm ci --ignore-scripts`, `npm run build`, and `npm test`.
+
+[Build, test and deploy](DEVELOPMENT.md) · [Security engineering](SECURITY.md) · [Changes](CHANGELOG.md)
+
+</details>
+
 ### Big ideas deserve a well-run Office.
 
 **Make it Chancery.**

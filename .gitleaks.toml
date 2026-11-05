@@ -1,0 +1,20 @@
+title = "Chancery release secret gate"
+
+[extend]
+useDefault = true
+
+# This exact value is a public token contract address, not a credential.
+# Both the source path and the entire scanner match must agree.
+[[allowlists]]
+description = "Public token contract used by the chain integration test"
+condition = "AND"
+paths = ['''(^|/)contracts/test/MainnetFork\.t\.sol$''']
+regexTarget = "match"
+regexes = ['''(?i)^TOKEN\s*=\s*0x5fc5360d0400a0fd4f2af552add042d716f1d168;$''']
+
+[[allowlists]]
+description = "Canonical public token address in the deployment template"
+condition = "AND"
+paths = ['''(^|/)deployment\.example\.json$''']
+regexTarget = "match"
+regexes = ['''(?i)^"?token"?\s*:\s*"?0x5fc5360d0400a0fd4f2af552add042d716f1d168"?,?$''']

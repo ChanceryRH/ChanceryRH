@@ -72,7 +72,14 @@ for (const path of [
   ".dockerignore",
   ".gitignore",
   ".env.example",
+  ".npmrc",
+  ".nvmrc",
   "README.md",
+  "DEVELOPMENT.md",
+  "SECURITY.md",
+  "CHANGELOG.md",
+  "SCOPE.md",
+  "deployment.example.json",
   "THIRD_PARTY_NOTICES.md",
 ])
   await add(path);

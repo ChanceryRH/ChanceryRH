@@ -1,0 +1,108 @@
+name: Chancery checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    if: github.repository == 'ChanceryRH/ChanceryRH'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-bookworm@sha256:665dc7b37ac52a17e298511414c21d23ffa4e6a6ef6225b3e5d59c7afb35e994
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: chancery_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 10s
+          --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version-file: .nvmrc
+      - name: Use the pinned package manager
+        run: npm install --global npm@11.19.1 --ignore-scripts
+      - name: Scan full history
+        run: |
+          bash security/install-scanner.sh
+          "$RUNNER_TEMP/gitleaks" git . --config .gitleaks.toml --gitleaks-ignore-path /dev/null --ignore-gitleaks-allow --redact=100 --log-opts="--all --full-history" --max-decode-depth 5
+      - name: Install and build
+        run: |
+          npm ci --ignore-scripts --no-fund
+          npm run build
+          git diff --exit-code -- contracts/artifacts
+      - name: Start disposable chain fork
+        run: |
+          node_modules/.bin/anvil --host 127.0.0.1 --port 18545 --fork-url https://rpc.mainnet.chain.robinhood.com --silent > "$RUNNER_TEMP/fork.log" 2>&1 &
+          node --input-type=module <<'JS'
+          for (let attempt = 0; attempt < 40; attempt++) {
+            try {
+              const response = await fetch('http://127.0.0.1:18545', {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({jsonrpc: '2.0', id: 1, method: 'eth_chainId', params: []}), signal: AbortSignal.timeout(1000)});
+              if ((await response.json()).result === '0x1237') process.exit(0);
+            } catch {}
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+          throw Error('Local chain fork did not become ready');
+          JS
+      - name: Test application and real database
+        env:
+          TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/chancery_test
+          LOCAL_FORK_RPC: http://127.0.0.1:18545
+        run: npm run test:coverage
+      - name: Test contracts
+        run: node_modules/.bin/forge test --no-match-path 'contracts/test/MainnetFork.t.sol'
+      - name: Test real chain dependencies on a local fork
+        env:
+          RHC_FORK: 'true'
+        run: node_modules/.bin/forge test --match-path 'contracts/test/MainnetFork.t.sol'
+      - name: Check production advisories and packaging
+        run: |
+          npm audit --omit=dev --audit-level=high
+          npm --prefix website run check
+          npm run package:app
+
+  static-analysis:
+    if: github.repository == 'ChanceryRH/ChanceryRH'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12.16'
+      - name: Install locked analysis tools
+        run: |
+          npm install --global npm@11.19.1 --ignore-scripts
+          npm ci --ignore-scripts --no-fund
+          python -m pip install --require-hashes -r security/scanners.lock
+      - name: Check TypeScript security rules
+        env:
+          SEMGREP_SEND_METRICS: 'off'
+          SEMGREP_ENABLE_VERSION_CHECK: '0'
+        run: |
+          semgrep --test --config security/semgrep.yml security/semgrep.test.ts
+          semgrep scan --config security/semgrep.yml --metrics=off --disable-version-check --error server shared packages/client
+      - name: Check contracts
+        run: |
+          export PATH="$PWD/node_modules/.bin:$PATH"
+          slither . --filter-paths 'vendor|contracts/test' --exclude-dependencies --fail-high

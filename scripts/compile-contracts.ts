@@ -12,6 +12,7 @@ const output = JSON.parse(
         optimizer: { enabled: true, runs: 200 },
         viaIR: true,
         evmVersion: "cancun",
+        metadata: { bytecodeHash: "none" },
         outputSelection: {
           "*": {
             "*": [
