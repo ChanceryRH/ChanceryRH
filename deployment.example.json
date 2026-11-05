@@ -11,7 +11,23 @@
   "sourceSha256": "REPLACE_WITH_SOURCE_SHA256",
   "registryArtifactSha256": "REPLACE_WITH_REGISTRY_ARTIFACT_SHA256",
   "logArtifactSha256": "REPLACE_WITH_LOG_ARTIFACT_SHA256",
-  "administratorSafe": { "owners": ["REPLACE_WITH_OWNER_1", "REPLACE_WITH_OWNER_2", "REPLACE_WITH_OWNER_3"], "threshold": 2 },
-  "treasurySafe": { "owners": ["REPLACE_WITH_OWNER_1", "REPLACE_WITH_OWNER_2", "REPLACE_WITH_OWNER_3"], "threshold": 2 },
+  "administratorSafe": {
+    "owners": [
+      "REPLACE_WITH_OWNER_1",
+      "REPLACE_WITH_OWNER_2",
+      "REPLACE_WITH_OWNER_3"
+    ],
+    "threshold": 2,
+    "extensions": "none"
+  },
+  "treasurySafe": {
+    "owners": [
+      "REPLACE_WITH_OWNER_1",
+      "REPLACE_WITH_OWNER_2",
+      "REPLACE_WITH_OWNER_3"
+    ],
+    "threshold": 2,
+    "extensions": "none"
+  },
   "minimumOperatorWei": "1000000000000000"
 }

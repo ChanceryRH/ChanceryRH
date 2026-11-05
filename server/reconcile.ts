@@ -3,6 +3,48 @@ import { dollars, mulBps, picoToUsdString } from "../shared/money.ts";
 import { rounded } from "./ledger.ts";
 import { uid, envelopeLeaf } from "./crypto.ts";
 import type { Runtime } from "./jobs.ts";
+import type { Hex } from "viem";
+import { clerkActor } from "./clerks.ts";
+import { ZERO } from "../shared/chain.ts";
+
+/** Operator-only recovery for expired, provably unpaid charges; signed history stays intact. */
+export async function waiveExpiredReceipt(runtime: Runtime, input: {officeId: string; receiptId: string; evidenceHash: string}) {
+  assert(/^[0-9a-f]{64}$/.test(input.evidenceHash), 400, "evidence_required", "Supply a verified recovery-record SHA-256.");
+  return runtime.db.office(input.officeId, async q => {
+    await q.query("SELECT * FROM office_locks FOR UPDATE");
+    const [receipt] = await q.query("SELECT * FROM receipts WHERE id=$1 FOR UPDATE", [input.receiptId]);
+    assert(receipt?.status === "final" && BigInt(receipt.charged_pico) > 0n,
+      409, "receipt_not_collectible", "Select an original, charged final receipt.");
+    if (receipt.request_id) {
+      const [request] = await q.query("SELECT * FROM requests WHERE id=$1 FOR UPDATE", [receipt.request_id]);
+      assert(request?.status === "complete" && request.receipt_id === receipt.id,
+        409, "receipt_request_mismatch", "Receipt is not the completed request's current charge.");
+    }
+    let batch: {id: Hex; actorId: Hex} | undefined;
+    if (receipt.settlement_id) {
+      const [settlement] = await q.query("SELECT * FROM settlements WHERE id=$1 FOR UPDATE", [receipt.settlement_id]);
+      const actor = receipt.actor_kind === "clerk" ? clerkActor(receipt.actor_id) : ZERO;
+      assert(settlement && Number(settlement.period_start) === Number(receipt.period_start) &&
+        settlement.actor_id === actor && Array.isArray(settlement.receipt_ids) && settlement.receipt_ids.includes(receipt.id),
+        409, "settlement_mismatch", "The original settlement record is incomplete or inconsistent.");
+      assert(settlement.status !== "confirmed", 409, "collection_already_paid", "The charge is already settled.");
+      batch = {id: settlement.id, actorId: actor};
+    }
+    const proof = await runtime.chain.expiredCollectionProof(input.officeId as Hex, Number(receipt.period_start), batch);
+    const id = uid("receipt_"), envelope = runtime.crypto.sign({type: "collection_waiver", id,
+      officeId: input.officeId, requestId: receipt.request_id, actorId: receipt.actor_id, actorKind: receipt.actor_kind,
+      status: "final", chargedUsd: "0", waivedUsd: picoToUsdString(BigInt(receipt.charged_pico)),
+      periodStart: Number(receipt.period_start), amends: receipt.id, evidenceSha256: input.evidenceHash,
+      finalizedProof: proof, operatorWaiver: true, issuedAt: new Date().toISOString()});
+    // Preserve the original signature, Merkle leaf, amount and batch/anchor links.
+    await q.query("UPDATE receipts SET status='waived' WHERE id=$1", [receipt.id]);
+    await q.query("INSERT INTO receipts(id,office_id,request_id,actor_id,actor_kind,room_id,model,lane,charged_pico,envelope,leaf,period_start,status,kind) VALUES($1,$2,$3,$4,$5,$6,$7,$8,0,$9,$10,$11,'final','collection_waiver')",
+      [id,input.officeId,receipt.request_id,receipt.actor_id,receipt.actor_kind,receipt.room_id,receipt.model,receipt.lane,
+        JSON.stringify(envelope),envelopeLeaf(envelope),receipt.period_start]);
+    if (receipt.request_id) await q.query("UPDATE requests SET charged_pico=0,receipt_id=$1 WHERE id=$2", [id,receipt.request_id]);
+    return {id, envelope};
+  });
+}
 export async function reconcileRequest(
   runtime: Runtime,
   input: {

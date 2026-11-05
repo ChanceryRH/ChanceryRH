@@ -28,7 +28,7 @@ Deployment is pre-launch: concrete operator and governance addresses must be sup
 | Each Office treasury's current owners | Open the Office; change seats, policy or cap; create/revoke Clerks; close the Office. | Current owner signatures and wallet threshold/nonce; contract `Safe only` checks and bounded caps. |
 | Registered settlement delegates | Call `consume` and `SettlementLog.record` for their own Office/actor. | Registered delegate identity, active state, period and Office cap; duplicate batch rejection. |
 | Settlement operator | Calls delegate `settle`, `anchorReceipts` and `anchorMinutes`. | Fixed token/treasury, owner allowances and Office cap, atomic transfer check, replay and period checks. The operator chooses receipt commitments and can bill within those approvals. |
-| Deployment maintainers | Configure origin/proxy, database, provider, retention/model lists, optional capabilities and server keys; run billing reconciliation. | Production config validation, access to the hosting secret store, reconciliation bounded by the original reservation. |
+| Deployment maintainers | Configure origin/proxy, database, provider, retention/model lists, optional capabilities and server keys; run billing reconciliation and explicit expired-receipt waivers. | Production config validation, access to the hosting secret store, reconciliation bounded by the original reservation; completed-charge waivers require verified finalized expiry and nonpayment and preserve signed history. |
 | Database administrators | Migrate schema and manage database authority. | Operational access controls; separate migration credentials from restricted runtime access. |
 | Principal | Current Office wallet owner; proposes, reviews and signs governance; creates/resumes/revokes Clerks; invites team roles. | Current onchain ownership, explicit proposal content, threshold signatures and nonce. |
 | Officer | Invites Members/Guests, runs/approves/pauses Clerks, issues Minutes and proposes transaction drafts. | Cannot invite Officers or acquire owner signing authority solely through this role. |
@@ -40,7 +40,7 @@ Officers and Principals can inspect Office receipts; that does not grant another
 
 ## Pre-launch governance handoff
 
-1. Create separate administrator and treasury wallets with at least two distinct owners and a threshold of at least two. Keep owners on separate devices. Use the final administrator at deployment: it cannot be transferred later.
+1. Create separate administrator and treasury wallets with at least two distinct owners and a threshold of at least two. Keep owners on separate devices. Use canonical version 1.4.1 wallets without enabled modules, a guard or a fallback handler for these two service wallets. The verifier requires this extension-free policy; custom extensions need a separate security review. End-user Office wallets are distinct from these service wallets. Use the final administrator at deployment: it cannot be transferred later.
 2. Designate a separate gas-only settlement operator. It must not be a governance or treasury owner solely to run the worker. Put server encryption/signing/provider credentials in the hosting secret store with restricted operational access.
 3. Review the unsigned deployment payload and compiler/source hashes with both governance reviewers. Deployment is a human wallet action.
 4. Record confirmed Registry and Log addresses, fixed dependencies, administrator/treasury owner sets and thresholds, operator address, minimum gas balance and artifact hashes in the approved manifest.
@@ -67,6 +67,8 @@ No known Medium or Low implementation finding is accepted as an exception. Opera
 
 | Property | Test |
 | --- | --- |
+| Expired uncollected charges recover through signed waivers after finalized nonpayment checks | [period-recovery.test.ts](tests/period-recovery.test.ts): `Collection recovery: expired usage and seat fees can be waived without rewriting signed history`, `Collection recovery: batched charges require finalized nonpayment; failures leave accounting unchanged`, and `Collection proof: expiry and nonpayment use a finalized block and verified contract code` |
+| Canonical service multisigs have no unreviewed extension authority | [deployment-fork.test.ts](tests/deployment-fork.test.ts): `Deployment verifier: canonical multisigs on a local fork pass, unexpected extension storage fails` |
 | Settlement cannot re-enter even through an authorized contract operator | [ChanceryRegistry.t.sol](contracts/test/ChanceryRegistry.t.sol): `testReentrantOperatorCannotSettleTwice` |
 | Challenges are bound, one-use and origin protected | [api.test.ts](tests/api.test.ts): `API: wallet challenge is bound, one-use and origin protected` |
 | Cross-Office and unscoped reads/writes are rejected | [api.test.ts](tests/api.test.ts): `database: RLS blocks reads and writes across Offices and unscoped service queries` |

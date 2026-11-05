@@ -1,21 +1,22 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { keccak256, type Address, type Hex } from "viem";
-import { ADDRESSES } from "../shared/chain.ts";
-import { deploymentManifest, loadDeploymentBuild, verifyDeployment, type DeploymentBuild, type DeploymentReader } from "../server/deployment.ts";
+import { ADDRESSES, ZERO } from "../shared/chain.ts";
+import { deploymentManifest, loadDeploymentBuild, verifyDeployment, safeExtensionSlots, type DeploymentBuild, type DeploymentReader } from "../server/deployment.ts";
 const address = (n: number) => `0x${n.toString(16).padStart(40, "0")}` as Address;
 function fixture() {
   const digest = "a".repeat(64), registry = address(1), log = address(2), admin = address(3), treasury = address(4);
   const expected = {version: 1, chainId: 4663, registry, settlementLog: log, administrator: admin, treasury,
     operator: address(5), token: ADDRESSES.usdg, allowanceModule: ADDRESSES.allowanceModule,
     sourceSha256: digest, registryArtifactSha256: digest, logArtifactSha256: digest,
-    administratorSafe: {owners: [address(10), address(11), address(12)], threshold: 2},
-    treasurySafe: {owners: [address(20), address(21)], threshold: 2}, minimumOperatorWei: "100"};
+    administratorSafe: {owners: [address(10), address(11), address(12)], threshold: 2, extensions: "none"},
+    treasurySafe: {owners: [address(20), address(21)], threshold: 2, extensions: "none"}, minimumOperatorWei: "100"};
   const artifact = {deployedBytecode: "0x60016000" as Hex, immutableReferences: {"0": [{start: 2, length: 1}]}, sourceSha256: digest};
-  const build: DeploymentBuild = {registry: artifact, log: artifact, proxyRuntime: "0x6003", moduleRuntimeHash: keccak256("0x6004"),
+  const build: DeploymentBuild = {registry: artifact, log: artifact, proxyRuntime: "0x6003", moduleRuntimeHash: keccak256("0x6004"), singletonRuntimeHash: keccak256("0x6006"),
     sourceSha256: digest, registryArtifactSha256: digest, logArtifactSha256: digest};
   const codes = new Map<string, Hex>([[registry, "0x6001ff00"], [log, "0x6001ee00"], [admin, "0x6003"],
-    [treasury, "0x6003"], [ADDRESSES.allowanceModule, "0x6004"], [ADDRESSES.usdg, "0x6005"]]);
+    [treasury, "0x6003"], [ADDRESSES.allowanceModule, "0x6004"], [ADDRESSES.usdg, "0x6005"], [ADDRESSES.safeSingleton, "0x6006"]]);
+  const storage = new Map<string, Hex>();
   const calls: bigint[] = [];
   const fields = new Map<string, any>();
   for (const name of ["token", "allowanceModule", "administrator", "treasury", "operator", "settlementLog"] as const)
@@ -25,20 +26,45 @@ function fixture() {
     fields.set(`${a}/masterCopy`, ADDRESSES.safeSingleton);
     fields.set(`${a}/getOwners`, [...s.owners].reverse());
     fields.set(`${a}/getThreshold`, BigInt(s.threshold));
+    fields.set(`${a}/getModulesPaginated`, [[], address(1)]);
+    for (const slot of Object.values(safeExtensionSlots)) storage.set(`${a}/${slot}`, ZERO);
   }
   const reader: DeploymentReader = {
     getChainId: async () => 4663, getBlockNumber: async () => 123n,
     getCode: async ({address, blockNumber}) => {calls.push(blockNumber); return codes.get(address);},
     getBalance: async ({blockNumber}) => {calls.push(blockNumber); return 100n;},
-    readContract: async ({address, functionName, blockNumber}) => {calls.push(blockNumber); return fields.get(`${address}/${functionName}`);},
+    getStorageAt: async ({address, slot, blockNumber}) => {calls.push(blockNumber); return storage.get(`${address}/${slot}`);},
+    readContract: async ({address: a, functionName, blockNumber, args}) => {
+      calls.push(blockNumber);
+      if(functionName === "getModulesPaginated") assert.deepEqual(args, [address(1), 1n]);
+      return fields.get(`${a}/${functionName}`);
+    },
   };
-  return {expected, build, reader, calls, codes, fields};
+  return {expected, build, reader, calls, codes, fields, storage};
 }
 test("Deployment verifier: approved runtimes, immutables, multisigs and balances match at one block", async () => {
   const f = fixture();
   const result = await verifyDeployment(f.expected, f.reader, f.build);
   assert.equal(result.matches, true); assert.equal(result.blockNumber, "123");
   assert(f.calls.length > 15 && f.calls.every((n) => n === 123n));
+});
+test("Deployment verifier: hidden multisig extension authority and wrong singleton code are rejected", async () => {
+  const singleton = fixture(); singleton.codes.set(ADDRESSES.safeSingleton, "0x6007");
+  await assert.rejects(verifyDeployment(singleton.expected, singleton.reader, singleton.build), /singleton runtime/);
+  for (const name of ["administrator", "treasury"] as const) {
+    for (const modules of [[[address(99)], address(1)], [[], address(99)], null, [[], address(0)]]) {
+      const f = fixture(); f.fields.set(`${f.expected[name]}/getModulesPaginated`, modules);
+      await assert.rejects(verifyDeployment(f.expected, f.reader, f.build), /modules/);
+    }
+    for (const [extension, slot] of Object.entries(safeExtensionSlots)) {
+      for (const value of [`0x${"0".repeat(63)}1`, "0x", undefined] as const) {
+        const f = fixture();
+        if(value === undefined) f.storage.delete(`${f.expected[name]}/${slot}`);
+        else f.storage.set(`${f.expected[name]}/${slot}`, value);
+        await assert.rejects(verifyDeployment(f.expected, f.reader, f.build), new RegExp(extension));
+      }
+    }
+  }
 });
 test("Deployment verifier: every authority and infrastructure mismatch fails closed", async (t) => {
   for (const name of ["token", "allowanceModule", "treasury", "administrator", "operator", "settlementLog"])
@@ -78,11 +104,12 @@ test("Deployment manifest: empty addresses, weak or duplicate owners and unknown
   const f = fixture();
   for (const value of [
     {...f.expected, registry: address(0)}, {...f.expected, operator: f.expected.administrator},
+    {...f.expected, treasury: f.expected.administrator},
     {...f.expected, operator: f.expected.administratorSafe.owners[0]},
     {...f.expected, chainId: 1}, {...f.expected, unknown: true},
-    {...f.expected, administratorSafe: {owners: [address(10), address(10)], threshold: 2}},
-    {...f.expected, administratorSafe: {owners: [address(10), address(11)], threshold: 1}},
-    {...f.expected, administratorSafe: {owners: [address(10), address(11)], threshold: 3}},
+    {...f.expected, administratorSafe: {...f.expected.administratorSafe, owners: [address(10), address(10)], threshold: 2}},
+    {...f.expected, administratorSafe: {...f.expected.administratorSafe, owners: [address(10), address(11)], threshold: 1}},
+    {...f.expected, administratorSafe: {...f.expected.administratorSafe, owners: [address(10), address(11)], threshold: 3}},
   ]) assert.equal(deploymentManifest.safeParse(value).success, false);
 });
 test("Deployment build: checked-in artifacts bind to source and the canonical module", async () => {

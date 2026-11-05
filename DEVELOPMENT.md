@@ -53,7 +53,7 @@ Compiler upgrades can change deterministic delegate addresses. Treat regenerated
    npm run deployment:verify -- --manifest /private/path/deployment.json
    ```
 
-   The verifier reads at one block, verifies runtime plus immutable values, checks the log's Registry backlink, verifies both canonical multisig proxies/owner sets/thresholds and minimum operator gas. It exits nonzero on mismatch or failed reads, and never signs or broadcasts.
+   The verifier reads at one block, verifies runtime plus immutable values, checks the log's Registry backlink, verifies the canonical multisig singleton and both proxies/owner sets/thresholds, requires no modules/guard/fallback handler in service wallets, and checks minimum operator gas. Set `extensions` to `none` in both service-wallet manifest sections after independently confirming that policy. It exits nonzero on mismatch or failed reads, and never signs or broadcasts.
 4. Supply production configuration through the host's secret store: HTTPS `APP_ORIGIN`, PostgreSQL `DATABASE_URL`, persistent storage and receipt-signing keys, provider settings, confirmed Registry address and gas-only operator key. `npm run secrets:generate` generates server keys for secure storage; keep its output private. Use a separate migration credential through `MIGRATION_DATABASE_URL`.
 5. Build the pinned Dockerfile. Run `npm run db:migrate` with the migration credential, then the API (`npm start`) and a separate worker (`npm run worker`). Run as the image's non-root user. Configure exactly one trusted reverse proxy and block direct access to the application port. Use HTTPS, encrypted backups and reviewed recovery access.
 6. Check `/health` and require `/ready` to return success. A successful health response alone does not establish database, operator or worker readiness. Require deployment verification and application/database/fork CI checks before launch.
@@ -63,6 +63,18 @@ Compiler upgrades can change deterministic delegate addresses. Treat regenerated
 Retain the approved manifest, build hashes and verifier output privately. Re-run verification after any operational change and before accepting a redeployment. Monitor worker readiness, operator gas, Registry operator-change/Office-close events and settlement amounts relative to approved limits. A failed verification is a deployment stop, not permission to rewrite the expected manifest.
 
 If a settlement credential is compromised, stop the worker and have the administrator multisig rotate the operator; Office owners can revoke allowances or close an Office. Assets remain under their wallet control. If storage keys are exposed, isolate the API, rotate keys through a tested re-encryption/recovery procedure and assess stored-content exposure. Preserve evidence privately and involve the designated deployment incident owner. Production launch requires a staffed incident contact and tested backup recovery.
+
+### Recover an expired allowance period
+
+If new spending returns `previous_period_unsettled`, inspect the old receipts and the worker outbox. Resolve uncertain requests with the existing evidence-backed request reconciliation command. A completed charge or seat fee that missed its collection period has an explicit operator waiver path:
+
+```sh
+npm run billing:reconcile -- --office "$OFFICE_ID" --receipt "$RECEIPT_ID" --waive --evidence /private/path/recovery-record.json
+```
+
+Run this only through the restricted operational environment. Record the incident, original receipt and reason in the private evidence file. The command verifies the Registry and Log build, reads one finalized block, requires the original allowance period to have expired, and rejects a batch already recorded as paid. Failed or unavailable finality checks leave accounting unchanged. For a paid batch missing local confirmation, reconcile the outbox; do not waive it.
+
+A successful waiver preserves the original signed envelope, Merkle leaf and batch/anchor links, and appends a signed zero-cost amendment with its proof block and evidence hash. It clears only that receipt's uncollectible balance. Repeat for each eligible old charge; never edit database amounts or move old charges into a new allowance period. Pending signed transactions retain their exact outbox entry and nonce until ordinary receipt processing resolves them; after finalized expiry their old-period debit cannot succeed. Recovery is explicit, never an automatic write-off.
 
 ## Public checks
 

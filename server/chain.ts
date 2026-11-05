@@ -31,6 +31,7 @@ import {
 import type { Config } from "./config.ts";
 import { verifyRegistryRuntime } from "./bytecode.ts";
 import { ApiError, assert } from "./errors.ts";
+import { expiredCollectionProof } from "./collection.ts";
 export type Call = { to: Address; data: Hex; value?: string };
 export type SafeInfo = {
   address: Address;
@@ -565,6 +566,9 @@ export function createChain(cfg: Config) {
         functionName: "settled",
         args: [batchId],
       });
+    },
+    async expiredCollectionProof(officeId: Hex, periodStart: number, batch?: {id: Hex; actorId: Hex}) {
+      return expiredCollectionProof(client, registry(), officeId, periodStart, batch);
     },
     async submit(to: Address, data: Hex) {
       assert(
