@@ -7,15 +7,13 @@ import {
   ChevronDown,
   Clock3,
   FileText,
-  History,
   LockKeyhole,
-  MessageSquare,
-  Plus,
   RefreshCw,
   ShieldCheck,
+  Sparkle,
   Sparkles,
+  SquarePen,
   Trash2,
-  X,
 } from "lucide-react";
 import { useOffice } from "../App";
 import {
@@ -29,16 +27,9 @@ import {
   ChanceryError,
 } from "../api";
 import { checkGuards } from "../../shared/guards";
-import {
-  Badge,
-  Button,
-  Empty,
-  Feedback,
-  Field,
-  Modal,
-  PageTitle,
-  useAction,
-} from "../ui";
+import { Button, Empty, Feedback, Field, useAction } from "../ui";
+import { Pill, SidePanel, SideItem, SideSection, avatarStyle } from "../shell";
+import { dayGroup, groupBy, time } from "../data";
 export function Chat() {
   const { office, account, models, navigate } = useOffice(),
     action = useAction();
@@ -55,8 +46,7 @@ export function Chat() {
     [messages, setMessages] = useState<Message[]>([]),
     [conversations, setConversations] = useState<Conversation[]>([]),
     [conversation, setConversation] = useState<Conversation | null>(null),
-    [ephemeral, setEphemeral] = useState(false),
-    [history, setHistory] = useState(false);
+    [ephemeral, setEphemeral] = useState(false);
   const [prepared, setPrepared] = useState<{
       quote: Quote;
       chat: any;
@@ -258,47 +248,128 @@ export function Chat() {
     setPrompt("");
     setPrepared(null);
     setResult(null);
-    setHistory(false);
   }
+  useEffect(() => {
+    let id: string | null = null;
+    try {
+      id = sessionStorage.getItem("chancery:open-conversation");
+      sessionStorage.removeItem("chancery:open-conversation");
+    } catch {}
+    if (!id || !conversations.length) return;
+    const c = conversations.find((x) => x.id === id);
+    if (c && !pending) void action.run(() => open(c));
+  }, [conversations.length]);
+  function reset() {
+    setConversation(null);
+    setMessages([]);
+    setPrompt("");
+    setResult(null);
+    setPrepared(null);
+  }
+  async function remove(c: Conversation) {
+    await api.request(
+      `/offices/${office.id}/conversations/${c.id}`,
+      undefined,
+      "DELETE",
+    );
+    setConversations(conversations.filter((x) => x.id !== c.id));
+    if (conversation?.id === c.id) reset();
+    action.setNotice("Conversation deleted. Billing receipts are retained.");
+  }
+  const lanes = (chosen?.lanes || ["standard"]).filter((l) =>
+    office.policy.allowedLanes.includes(l),
+  );
+  const available$ = Math.max(
+    0,
+    Number(office.capUsd) - Number(office.spentUsd),
+  );
+  const groups = groupBy(conversations, (c) => dayGroup(c.createdAt));
+  const secondsLeft = prepared
+    ? Math.max(0, Math.ceil((Date.parse(prepared.quote.expiresAt) - now) / 1000))
+    : 0;
   if (office.role === "guest")
     return (
       <Empty icon={<LockKeyhole />} title="Your invitation opens a Room.">
-        Guest access covers your invited Rooms. Visit Updates to open the
-        encrypted Rooms feature.
+        Guest access covers your invited Rooms. Open Rooms from the rail to
+        continue.
       </Empty>
     );
   return (
     <div className="chat-page">
-      <PageTitle
-        eyebrow="YOUR PRIVATE AI WORKSPACE"
-        title={conversation?.title || "What are we working on?"}
-        actions={
-          <>
-            <Button kind="secondary" onClick={() => setHistory(true)}>
-              <History size={16} />
-              History
-            </Button>
-            <Button
-              kind="secondary"
-              disabled={!!pending || action.busy}
-              onClick={() => {
-                setConversation(null);
-                setMessages([]);
-                setPrompt("");
-                setResult(null);
-                setPrepared(null);
-              }}
+      <SidePanel
+        title="Workspace"
+      >
+        <button
+          className="side-new"
+          disabled={!!pending || action.busy}
+          onClick={reset}
+        >
+          <SquarePen size={15} />
+          New chat
+        </button>
+        {conversations.length ? (
+          [...groups.entries()].map(([label, list]) => (
+            <SideSection label={label} key={label}>
+              {list.map((c) => (
+                <div
+                  className={`side-row ${conversation?.id === c.id ? "active" : ""}`}
+                  key={c.id}
+                >
+                  <SideItem
+                    active={conversation?.id === c.id}
+                    title={c.title}
+                    meta={`${c.ephemeral ? "Temporary · " : ""}${time(c.createdAt)}`}
+                    onClick={() => action.run(() => open(c))}
+                  />
+                  <button
+                    className="icon-button side-row-action"
+                    aria-label={`Delete ${c.title}`}
+                    title="Delete conversation"
+                    disabled={action.busy || !!pending}
+                    onClick={() => action.run(() => remove(c))}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </SideSection>
+          ))
+        ) : (
+          <p className="side-note">Saved conversations appear here.</p>
+        )}
+      </SidePanel>
+      <header className="chat-head">
+        <div>
+          <h1>{conversation?.title || "New conversation"}</h1>
+          <label className="model-pill">
+            <select
+              aria-label="AI model"
+              value={chosen?.id || ""}
+              disabled={action.busy || !!pending || !!prepared}
+              onChange={(e) => setModel(e.target.value)}
             >
-              <Plus size={16} />
-              New chat
-            </Button>
-          </>
-        }
-      />
+              {!available.length && <option value="">Models unavailable</option>}
+              {available.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={14} />
+            {chosen && (
+              <span className="model-price">
+                ${Number(chosen.inputUsdPerMillion)} / $
+                {Number(chosen.outputUsdPerMillion)} per 1M tokens
+              </span>
+            )}
+          </label>
+        </div>
+        {conversation?.ephemeral && <Pill>Temporary</Pill>}
+      </header>
       <Feedback action={action} />
       {pending && (
         <div className="notice warning">
-          <Clock3 size={18} />
+          <Clock3 size={17} />
           <span>
             {result?.status === "uncertain"
               ? "The provider outcome needs reconciliation. Your reserved budget is held; this request won’t be sent again automatically."
@@ -309,7 +380,7 @@ export function Chat() {
             busy={action.busy}
             onClick={() => action.run(inspect)}
           >
-            <RefreshCw size={15} />
+            <RefreshCw size={14} />
             Check status
           </Button>
         </div>
@@ -317,44 +388,80 @@ export function Chat() {
       <div className={`chat-content ${messages.length ? "has-messages" : ""}`}>
         {messages.length ? (
           <div className="messages">
-            {messages.map((m, i) => (
-              <article key={m.id || i} className={`message ${m.role}`}>
-                <span className="message-avatar">
-                  {m.role === "assistant" ? (
-                    <img src="/app/brand/mark.svg" alt="Chancery" />
-                  ) : (
-                    "You"
-                  )}
-                </span>
-                <div>
-                  <span className="message-author">
-                    {m.role === "assistant" ? "Chancery" : "You"}
+            {messages.map((m, i) => {
+              const last = i === messages.length - 1;
+              return (
+                <article key={m.id || i} className={`message ${m.role}`}>
+                  <span
+                    className={`message-avatar ${m.role !== "assistant" && account.wallet ? "tinted" : ""}`}
+                    style={m.role !== "assistant" && account.wallet ? avatarStyle(account.wallet) : undefined}
+                  >
+                    {m.role === "assistant" ? (
+                      <Sparkle size={15} />
+                    ) : account.wallet ? (
+                      account.wallet.slice(2, 4).toUpperCase()
+                    ) : (
+                      "You"
+                    )}
                   </span>
-                  <div className="markdown">
-                    <Markdown
-                      remarkPlugins={[remarkGfm]}
-                      components={{
-                        img: () => null,
-                        a: ({ children, href }) => (
-                          <a href={href} target="_blank" rel="noreferrer">
-                            {children}
-                          </a>
-                        ),
-                      }}
-                    >
-                      {m.content}
-                    </Markdown>
+                  <div className="message-body">
+                    <span className="message-author">
+                      {m.role === "assistant"
+                        ? models.find((x) => x.id === m.model)?.name ||
+                          chosen?.name ||
+                          "Assistant"
+                        : "You"}
+                      {m.createdAt && <time>{time(m.createdAt)}</time>}
+                    </span>
+                    <div className="markdown">
+                      <Markdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          img: () => null,
+                          a: ({ children, href }) => (
+                            <a href={href} target="_blank" rel="noreferrer">
+                              {children}
+                            </a>
+                          ),
+                        }}
+                      >
+                        {m.content}
+                      </Markdown>
+                    </div>
+                    {m.role === "assistant" && (
+                      <div className="message-foot">
+                        {last && result?.status === "complete" && (
+                          <span className="receipt-chip">
+                            {money(result.chargedUsd, 6)} USDG · receipt
+                            <Check size={13} />
+                          </span>
+                        )}
+                        <button
+                          onClick={() =>
+                            action.run(async () => {
+                              await navigator.clipboard.writeText(m.content);
+                              action.setNotice("Copied.");
+                            })
+                          }
+                        >
+                          Copy
+                        </button>
+                        {last && result?.status === "complete" && (
+                          <button onClick={() => navigate("ledger")}>
+                            View receipt
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </div>
-              </article>
-            ))}
-            {result?.status === "complete" && (
-              <div className="chat-receipt">
-                <Check size={14} /> {money(result.chargedUsd, 6)} USDG · Receipt
-                recorded
-                <button onClick={() => navigate("ledger")}>
-                  View in Ledger →
-                </button>
+                </article>
+              );
+            })}
+            {result?.status === "pending" && (
+              <div className="thinking">
+                <span />
+                <span />
+                <span />
               </div>
             )}
             {result?.status === "failed" && (
@@ -367,18 +474,10 @@ export function Chat() {
           </div>
         ) : (
           <div className="chat-intro">
-            <div className="chat-mark">
-              <img src="/app/brand/mark.svg" alt="" />
-            </div>
-            <span className="eyebrow">A FRESH PERSPECTIVE</span>
-            <h2>
-              A little help.
-              <br />A place to start.
-            </h2>
+            <h2>What are we working on?</h2>
             <p>
-              Bring your questions. Choose your model.
-              <br />
-              Your Office takes care of the rest.
+              Choose a model, write your request, and review the maximum price
+              before anything is sent.
             </p>
             <div className="suggestions">
               {[
@@ -399,7 +498,7 @@ export function Chat() {
                 },
               ].map(({ icon: Icon, title, text }) => (
                 <button key={title} onClick={() => setPrompt(text)}>
-                  <Icon size={19} />
+                  <Icon size={16} />
                   <strong>{title}</strong>
                   <span>{text}</span>
                 </button>
@@ -409,18 +508,45 @@ export function Chat() {
         )}
       </div>
       <div className="composer-wrap">
+        {prepared && (
+          <div className="quote-strip" role="dialog" aria-label="Review price">
+            <div>
+              <small>Maximum charge</small>
+              <strong>
+                {money(prepared.quote.maximumUsd, 6)} <span>USDG</span>
+              </strong>
+            </div>
+            <div className="quote-meta">
+              {chosen?.name} ·{" "}
+              {lane === "standard" ? "Standard processing" : "Zero retention"} ·{" "}
+              {secondsLeft > 0 ? `valid ${secondsLeft}s` : "expired"}
+            </div>
+            <Button kind="ghost" onClick={() => setPrepared(null)}>
+              Cancel
+            </Button>
+            <Button
+              busy={action.busy}
+              disabled={secondsLeft <= 0}
+              onClick={() => action.run(send)}
+            >
+              Approve & send
+              <ArrowUp size={15} />
+            </Button>
+          </div>
+        )}
         <div className={`composer ${guard ? "blocked" : ""}`}>
           <textarea
             aria-label="Message"
             placeholder={
               allowed
-                ? "What would you like to work on?"
+                ? "Ask a question or give a task…"
                 : "Approve your Office and seat to start a conversation."
             }
             value={prompt}
-            disabled={!allowed || !!pending || action.busy}
+            disabled={!allowed || !!pending || action.busy || !!prepared}
             onChange={(e) => setPrompt(e.target.value)}
             maxLength={60000}
+            rows={2}
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
@@ -430,49 +556,77 @@ export function Chat() {
             }}
           />
           <div className="composer-controls">
-            <label className="model-select">
-              <Sparkles size={15} />
-              <select
-                aria-label="AI model"
-                value={chosen?.id || ""}
-                disabled={action.busy || !!pending}
-                onChange={(e) => setModel(e.target.value)}
-              >
-                {!available.length && (
-                  <option value="">Models unavailable</option>
-                )}
-                {available.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <select
-              className="lane-select"
-              aria-label="Privacy lane"
-              value={lane}
-              disabled={action.busy || !!pending}
-              onChange={(e) => setLane(e.target.value)}
-            >
-              {(chosen?.lanes || ["standard"])
-                .filter((l) => office.policy.allowedLanes.includes(l))
-                .map((l) => (
-                  <option key={l} value={l}>
-                    {l === "standard" ? "Standard" : "Zero retention"}
-                  </option>
-                ))}
-            </select>
+            {lanes.length > 1 ? (
+              <label className="switch">
+                <input
+                  type="checkbox"
+                  checked={lane === "zero_retention"}
+                  disabled={action.busy || !!pending || !!prepared}
+                  onChange={(e) =>
+                    setLane(e.target.checked ? "zero_retention" : "standard")
+                  }
+                />
+                <span aria-hidden="true" />
+                Zero retention
+              </label>
+            ) : (
+              <span className="lane-label">
+                <ShieldCheck size={14} />
+                {lanes[0] === "zero_retention" ? "Zero retention" : "Standard processing"}
+              </span>
+            )}
+            <details className="options">
+              <summary>Options</summary>
+              <div className="popover options-pop">
+                <Field label="Maximum output tokens">
+                  <input
+                    type="number"
+                    min="1"
+                    max={chosen?.maxTokens || 8192}
+                    value={maxTokens}
+                    onChange={(e) =>
+                      setMaxTokens(
+                        Math.max(
+                          1,
+                          Math.min(
+                            chosen?.maxTokens || 8192,
+                            Number(e.target.value) || 1,
+                          ),
+                        ),
+                      )
+                    }
+                  />
+                </Field>
+                <label className="check-row">
+                  <input
+                    type="checkbox"
+                    checked={conversation?.ephemeral ?? ephemeral}
+                    disabled={!!conversation}
+                    onChange={(e) => setEphemeral(e.target.checked)}
+                  />
+                  Don’t save this conversation
+                </label>
+                <small>Billing receipts are always retained.</small>
+              </div>
+            </details>
+            <span className="composer-budget">
+              Office has {money(available$)} USDG left
+            </span>
             <Button
               className="send-button"
-              busy={action.busy}
+              busy={action.busy && !prepared}
               disabled={
-                !allowed || !prompt.trim() || !!guard || !chosen || !!pending
+                !allowed ||
+                !prompt.trim() ||
+                !!guard ||
+                !chosen ||
+                !!pending ||
+                !!prepared
               }
               onClick={() => action.run(quote)}
             >
               Review price
-              <ArrowUp size={17} />
+              <ArrowUp size={15} />
             </Button>
           </div>
         </div>
@@ -482,154 +636,17 @@ export function Chat() {
             {guard.message}
           </div>
         ) : (
-          <div className="composer-note">
-            <span>
-              <ShieldCheck size={13} />
-              Guards on ·{" "}
-              {lane === "zero_retention"
-                ? "Response content is not stored."
-                : "Messages are sent to your chosen provider."}
-            </span>
-            <details>
-              <summary>Options</summary>
-              <Field label="Maximum output tokens">
-                <input
-                  type="number"
-                  min="1"
-                  max={chosen?.maxTokens || 8192}
-                  value={maxTokens}
-                  onChange={(e) =>
-                    setMaxTokens(
-                      Math.max(
-                        1,
-                        Math.min(
-                          chosen?.maxTokens || 8192,
-                          Number(e.target.value) || 1,
-                        ),
-                      ),
-                    )
-                  }
-                />
-              </Field>
-              <label className="check-row">
-                <input
-                  type="checkbox"
-                  checked={conversation?.ephemeral ?? ephemeral}
-                  disabled={!!conversation}
-                  onChange={(e) => setEphemeral(e.target.checked)}
-                />
-                Don’t save this conversation
-              </label>
-              <small>Billing receipts are always retained.</small>
-            </details>
-          </div>
+          <p className="composer-note">
+            Requests are quoted before you approve them. A signed receipt
+            follows every completed request. Guards are on
+            {lane === "zero_retention"
+              ? " · response content is not stored."
+              : "."}{" "}
+            <kbd>⌘</kbd>
+            <kbd>↵</kbd> to review price.
+          </p>
         )}
       </div>
-      {prepared && (
-        <Modal
-          title="A clear price before you send."
-          close={() => setPrepared(null)}
-        >
-          <div className="quote-price">
-            <small>MAXIMUM CHARGE</small>
-            <strong>
-              {money(prepared.quote.maximumUsd, 6)}
-              <span>USDG</span>
-            </strong>
-            <p>
-              Includes provider cost and Chancery’s platform fee. You won’t be
-              charged more than this amount.
-            </p>
-          </div>
-          <dl className="detail-list">
-            <div>
-              <dt>Model</dt>
-              <dd>{chosen?.name}</dd>
-            </div>
-            <div>
-              <dt>Privacy</dt>
-              <dd>
-                {lane === "standard"
-                  ? "Standard provider processing"
-                  : "Operator-verified zero retention"}
-              </dd>
-            </div>
-            <div>
-              <dt>Quote valid for</dt>
-              <dd>
-                {Math.max(
-                  0,
-                  Math.ceil(
-                    (Date.parse(prepared.quote.expiresAt) - now) / 1000,
-                  ),
-                )}{" "}
-                seconds
-              </dd>
-            </div>
-          </dl>
-          <Feedback action={action} />
-          <Button
-            busy={action.busy}
-            disabled={now >= Date.parse(prepared.quote.expiresAt)}
-            onClick={() => action.run(send)}
-          >
-            Approve & send
-            <ArrowUp size={16} />
-          </Button>
-        </Modal>
-      )}
-      {history && (
-        <Modal title="Your conversations" close={() => setHistory(false)}>
-          {conversations.length ? (
-            conversations.map((c) => (
-              <div className="history-row" key={c.id}>
-                <button onClick={() => action.run(() => open(c))}>
-                  <MessageSquare size={17} />
-                  <span>
-                    {c.title}
-                    <small>
-                      {c.ephemeral ? "Temporary · " : ""}
-                      {date(c.createdAt)}
-                    </small>
-                  </span>
-                </button>
-                <button
-                  className="icon-button"
-                  aria-label={`Delete ${c.title}`}
-                  disabled={action.busy || !!pending}
-                  onClick={() =>
-                    action.run(async () => {
-                      await api.request(
-                        `/offices/${office.id}/conversations/${c.id}`,
-                        undefined,
-                        "DELETE",
-                      );
-                      setConversations(
-                        conversations.filter((x) => x.id !== c.id),
-                      );
-                      if (conversation?.id === c.id) {
-                        setConversation(null);
-                        setMessages([]);
-                        setResult(null);
-                      }
-                      action.setNotice(
-                        "Conversation deleted. Billing receipts are retained.",
-                      );
-                    })
-                  }
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            ))
-          ) : (
-            <Empty title="Your next idea starts here." icon={<MessageSquare />}>
-              Saved conversations will appear here.
-            </Empty>
-          )}
-          <Feedback action={action} />
-        </Modal>
-      )}
     </div>
   );
 }

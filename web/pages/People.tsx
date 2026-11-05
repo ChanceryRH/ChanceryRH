@@ -1,28 +1,44 @@
 import { useEffect, useState } from "react";
-import { Copy, Plus, Users, UserCheck, UserRoundX } from "lucide-react";
-import { useOffice } from "../App";
-import { api, short, money } from "../api";
 import {
-  Badge,
+  ArrowRight,
+  Copy,
+  Plus,
+  Search,
+  ShieldCheck,
+  Users,
+  UserCheck,
+  UserRoundX,
+} from "lucide-react";
+import { useOffice } from "../App";
+import { api, short, money, date, type Receipt } from "../api";
+import { Amount, Monogram, Pill, Progress, SidePanel, SideItem, SideSection } from "../shell";
+import { charged, modelLabel, sentence, monthLabel, payload, receiptState, sum, thisMonth } from "../data";
+import {
   Button,
   Empty,
   Feedback,
   Field,
   Modal,
-  PageTitle,
   Panel,
   submit,
   useAction,
 } from "../ui";
+const roleName = (role: string) =>
+  ({ principal: "Owner", officer: "Officer", member: "Member", guest: "Guest" })[role] || role;
 export function People() {
-  const { office, onProposal } = useOffice(),
+  const { office, onProposal, navigate, models } = useOffice(),
     action = useAction(),
     [seats, setSeats] = useState<any[]>([]),
     [inviteOpen, setInviteOpen] = useState(false),
     [invite, setInvite] = useState<any>(null),
     [role, setRole] = useState("member"),
     [cap, setCap] = useState("50"),
-    [editing, setEditing] = useState<any>(null);
+    [editing, setEditing] = useState<any>(null),
+    [query, setQuery] = useState(""),
+    [tab, setTab] = useState<"seats" | "pending">("seats"),
+    [selectedId, setSelectedId] = useState(""),
+    [receipts, setReceipts] = useState<Receipt[]>([]);
+  const names = new Map(models.map((m) => [m.id, m.name]));
   const principal = office.role === "principal",
     manager = principal || office.role === "officer";
   async function load() {
@@ -30,142 +46,264 @@ export function People() {
   }
   useEffect(() => {
     if (manager) void action.run(load);
+    if (manager && office.status === "active")
+      void api
+        .office(office.id, `/ledger?month=${thisMonth()}`)
+        .then(setReceipts)
+        .catch(() => {});
   }, [office.id, office.status]);
+  useEffect(() => {
+    if (location.hash.includes("invite") && manager && office.status === "active") {
+      setInvite(null);
+      setInviteOpen(true);
+      history.replaceState(null, "", "#/people");
+    }
+  }, []);
   if (!manager)
     return (
-      <Empty icon={<Users />} title="Your team, in good hands.">
-        Office owners and Officers manage invitations. Contact them if your
-        access needs to change.
-      </Empty>
+      <>
+        <SidePanel title="People" />
+        <Empty icon={<Users />} title="Your team, in good hands.">
+          Office owners and Officers manage invitations. Contact them if your
+          access needs to change.
+        </Empty>
+      </>
     );
   async function propose(change: any) {
     await api.office(office.id, "/seats/propose", { seats: [change] });
     setEditing(null);
     await onProposal();
   }
+  const label = (s: any) =>
+    s.credential?.startsWith("wallet:")
+      ? short(s.credential.slice(7))
+      : "Passkey member";
+  const shown = seats.filter(
+    (s) =>
+      (tab === "pending" ? s.status === "pending" : s.status !== "pending") &&
+      (!query ||
+        `${label(s)} ${s.role} ${s.credential}`
+          .toLowerCase()
+          .includes(query.toLowerCase())),
+  );
+  const seat = seats.find((s) => s.id === selectedId) || shown[0];
+  const seatReceipts = receipts.filter((r) => payload(r).actorId === seat?.id);
+  const seatCap = seat ? Number(seat.monthly_cap_pico) / 1e12 : 0;
+  const seatUsed = sum(seatReceipts);
   return (
     <>
-      <PageTitle
-        eyebrow="GOOD COMPANY"
-        title="A place for your people."
-        actions={
+      <SidePanel
+        title="People"
+        action={
           <Button
+            kind="secondary"
+            className="small"
             onClick={() => {
               setInvite(null);
               setInviteOpen(true);
             }}
             disabled={office.status !== "active"}
+            aria-label="Invite a teammate"
           >
-            <Plus size={17} />
-            Invite a teammate
+            <Plus size={14} /> Invite
           </Button>
         }
       >
-        Roles and spending limits keep everyone on the same page.
-      </PageTitle>
+        <label className="side-search">
+          <Search size={14} />
+          <input
+            placeholder="Search members…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </label>
+        <div className="segmented">
+          <button
+            className={tab === "seats" ? "active" : ""}
+            onClick={() => setTab("seats")}
+          >
+            Seats{" "}
+            <span className="count">
+              {seats.filter((s) => s.status !== "pending").length}
+            </span>
+          </button>
+          <button
+            className={tab === "pending" ? "active" : ""}
+            onClick={() => setTab("pending")}
+          >
+            Pending{" "}
+            <span className="count">
+              {seats.filter((s) => s.status === "pending").length}
+            </span>
+          </button>
+        </div>
+        <SideSection>
+          {shown.length ? (
+            shown.map((s) => (
+              <SideItem
+                key={s.id}
+                active={seat?.id === s.id}
+                leading={<Monogram value={s.credential?.slice(7) || s.id} />}
+                title={label(s)}
+                meta={<span className="capitalize">{roleName(s.role)}</span>}
+                trailing={
+                  s.status !== "active" ? (
+                    <Pill tone={s.status === "pending" ? "amber" : "red"}>
+                      {sentence(s.status)}
+                    </Pill>
+                  ) : undefined
+                }
+                onClick={() => setSelectedId(s.id)}
+              />
+            ))
+          ) : (
+            <p className="side-note">
+              {tab === "pending"
+                ? "No seats waiting for approval."
+                : "No members match."}
+            </p>
+          )}
+        </SideSection>
+      </SidePanel>
       <Feedback action={action} />
-      <Panel>
-        <div className="section-heading">
-          <h2>Office seats</h2>
-          <Badge>
-            {seats.filter((s) => s.status === "active").length} active
-          </Badge>
+      {!seat ? (
+        <Empty icon={<Users />} title="Bring your people in.">
+          Invite a teammate to give them a seat with its own spending limit.
+        </Empty>
+      ) : (
+        <div className="detail-page">
+          <header className="profile-head">
+            <Monogram value={seat.credential?.slice(7) || seat.id} tone="large" />
+            <div>
+              <h1>{label(seat)}</h1>
+              <p>
+                <code>
+                  {seat.credential?.startsWith("wallet:")
+                    ? seat.credential.slice(7)
+                    : seat.id}
+                </code>
+              </p>
+            </div>
+            <Pill tone="ink">{roleName(seat.role)}</Pill>
+            <Pill
+              tone={
+                seat.status === "active"
+                  ? "green"
+                  : seat.status === "pending"
+                    ? "amber"
+                    : "red"
+              }
+            >
+              {sentence(seat.status)}
+            </Pill>
+            <span className="grow" />
+            {principal && office.status === "active" && seat.status !== "revoked" && (
+              <>
+                {seat.status === "pending" && (
+                  <Button
+                    disabled={action.busy}
+                    onClick={() => action.run(() => propose({ id: seat.id }))}
+                  >
+                    <UserCheck size={14} />
+                    Propose approval
+                  </Button>
+                )}
+                {seat.role !== "principal" && (
+                  <Button
+                    kind="secondary"
+                    onClick={() =>
+                      setEditing({
+                        ...seat,
+                        newRole: seat.role,
+                        newCap: String(Number(seat.monthly_cap_pico) / 1e12),
+                      })
+                    }
+                  >
+                    Manage seat
+                  </Button>
+                )}
+              </>
+            )}
+          </header>
+          <Panel className="card">
+            <div className="card-head">
+              <div>
+                <h2>Seat limit</h2>
+                <p>Per 30-day cycle · changes need Safe approval</p>
+              </div>
+              <div className="card-figure">
+                <strong>{money(seatCap)} USDG</strong>
+                <small>
+                  {money(seatUsed)} spent in {monthLabel(thisMonth())}
+                </small>
+              </div>
+            </div>
+            <Progress value={seatUsed} max={seatCap} />
+          </Panel>
+          <Panel className="card">
+            <div className="card-head">
+              <div>
+                <h2>Recent receipts</h2>
+                <p>{monthLabel(thisMonth())}</p>
+              </div>
+              <button className="link" onClick={() => navigate("ledger")}>
+                Open ledger <ArrowRight size={13} />
+              </button>
+            </div>
+            {seatReceipts.length ? (
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Model</th>
+                    <th className="num">Cost (USDG)</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {seatReceipts.slice(0, 8).map((r) => {
+                    const st = receiptState(r);
+                    return (
+                      <tr key={r.id}>
+                        <td>{date(r.created_at)}</td>
+                        <td>{modelLabel(r, names)}</td>
+                        <td className="num">
+                          <Amount value={charged(r)} />
+                        </td>
+                        <td>
+                          <Pill tone={st.tone}>{st.label}</Pill>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            ) : (
+              <p className="card-empty">No receipts for this seat this month.</p>
+            )}
+          </Panel>
+          <div className="safe-strip">
+            <ShieldCheck size={16} />
+            <span>
+              Seat changes take effect after the Safe’s approval is executed.
+              Each active seat costs 9 USDG per calendar month, prorated daily.
+            </span>
+            {principal && seat.account_id && (
+              <button
+                className="link"
+                onClick={() =>
+                  action.run(async () => {
+                    await navigator.clipboard.writeText(seat.account_id);
+                    action.setNotice("Member account ID copied.");
+                  })
+                }
+              >
+                <Copy size={12} /> Copy account ID
+              </button>
+            )}
+          </div>
         </div>
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Member</th>
-                <th>Role</th>
-                <th>Seat limit · USDG</th>
-                <th>Status</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {seats.map((s) => (
-                <tr key={s.id}>
-                  <td>
-                    <span className="person-name">
-                      <span className="account-avatar">
-                        <Users size={15} />
-                      </span>
-                      <span>
-                        {s.credential.startsWith("wallet:")
-                          ? short(s.credential.slice(7))
-                          : "Passkey member"}
-                        <small>{short(s.id)}</small>
-                      </span>
-                    </span>
-                  </td>
-                  <td className="capitalize">{s.role}</td>
-                  <td>{money(Number(s.monthly_cap_pico) / 1e12)}</td>
-                  <td>
-                    <Badge tone={s.status === "active" ? "green" : ""}>
-                      {s.status}
-                    </Badge>
-                  </td>
-                  <td>
-                    {principal && s.account_id && (
-                      <button
-                        className="text-button"
-                        title="Copy account ID for Room membership"
-                        onClick={() =>
-                          action.run(async () => {
-                            await navigator.clipboard.writeText(s.account_id);
-                            action.setNotice("Member account ID copied.");
-                          })
-                        }
-                      >
-                        <Copy size={12} />
-                        Account ID
-                      </button>
-                    )}
-                    {principal &&
-                      office.status === "active" &&
-                      s.status !== "revoked" && (
-                        <div className="actions">
-                          {s.status === "pending" && (
-                            <Button
-                              kind="secondary"
-                              disabled={action.busy}
-                              onClick={() =>
-                                action.run(() => propose({ id: s.id }))
-                              }
-                            >
-                              <UserCheck size={14} />
-                              Approve seat
-                            </Button>
-                          )}
-                          {s.role !== "principal" && (
-                            <button
-                              className="text-button"
-                              onClick={() =>
-                                setEditing({
-                                  ...s,
-                                  newRole: s.role,
-                                  newCap: String(
-                                    Number(s.monthly_cap_pico) / 1e12,
-                                  ),
-                                })
-                              }
-                            >
-                              Manage
-                            </button>
-                          )}
-                        </div>
-                      )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="panel-note">
-          Seat changes take effect after the Safe’s approval is executed. Each
-          active seat costs 9 USDG per calendar month, prorated daily.
-        </p>
-      </Panel>
+      )}
       {inviteOpen && (
         <Modal
           title={invite ? "Your invitation is ready." : "Bring someone in."}

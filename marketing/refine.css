@@ -1,0 +1,537 @@
+/* ============================================================
+   Chancery — refinement layer
+   Loaded after styles.css + card-scenes.css.
+   Type: Newsreader (display, optical sizes) · Instrument Sans (UI) · IBM Plex Mono (figures, labels)
+   Material: engraved hairlines, guilloché, film grain, bone paper on ink.
+   ============================================================ */
+
+:root {
+  --bone: #f3efe6;
+  --bone-2: #e9e3d6;
+  --ink-0: #12131f;
+  --ink-1: #17182d;
+  --pewter: #b9bccb;
+  --hair-dark: rgba(214, 216, 232, 0.14);
+  --hair-light: rgba(23, 24, 45, 0.14);
+  --wax: #b4442e;
+  --periwinkle: #8c93e8;
+  --purple: #5c60e8;
+  font-optical-sizing: auto;
+  font-feature-settings: "kern", "liga";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---------- Film grain over everything (static, 4%) ---------- */
+body::after {
+  content: "";
+  position: fixed;
+  inset: -50%;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.055;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 1.4 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* ---------- Type system ---------- */
+h1,
+h2,
+.manifesto blockquote,
+.closing-section h2 {
+  font-family: var(--f-display);
+  font-weight: 360;
+  letter-spacing: -0.022em;
+  line-height: 1.02;
+  text-wrap: balance;
+  font-variation-settings: "opsz" 72;
+}
+h1 em,
+h2 em,
+blockquote em {
+  font-style: italic;
+  font-weight: 320;
+  letter-spacing: -0.03em;
+}
+h3,
+h4 {
+  font-family: var(--f-ui);
+  font-weight: 560;
+  letter-spacing: -0.008em;
+  line-height: 1.25;
+}
+p {
+  text-wrap: pretty;
+}
+
+/* Mono labels: eyebrows, captions, small caps-like metadata */
+.eyebrow,
+.menu-label,
+.visual-caption,
+.hero-note,
+.footer-meta,
+.audience-types small {
+  font-family: var(--f-mono);
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.eyebrow {
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  opacity: 0.78;
+}
+.eyebrow::before {
+  content: "";
+  width: 28px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.6;
+}
+.eyebrow b {
+  font-weight: 500;
+  opacity: 0.55;
+  letter-spacing: 0.06em;
+}
+
+/* Section headline scale — editorial, not dashboard */
+h2 {
+  font-size: clamp(34px, 3.4vw, 52px);
+}
+.office-copy h2 {
+  font-size: clamp(34px, 3vw, 46px);
+  margin-bottom: 8px;
+}
+.audience-section h2,
+.principle-stats h2 {
+  font-size: clamp(40px, 4.4vw, 68px);
+}
+.story-copy h2,
+.features-section > h2,
+.split-copy h2,
+.operations-section > h2,
+.security-section > h2,
+.resources-section > h2 {
+  font-size: clamp(34px, 3.5vw, 54px);
+}
+.closing-section h2 {
+  font-size: clamp(48px, 6.2vw, 104px);
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+}
+.manifesto blockquote {
+  font-size: clamp(30px, 3.2vw, 48px);
+  line-height: 1.12;
+  font-weight: 330;
+}
+.end-cards h2 {
+  font-size: clamp(28px, 2.4vw, 36px);
+}
+
+/* Figures: serif lining numerals for hero numbers, mono tabular for small figures */
+.price-center > strong,
+.stats-grid strong,
+.allowance-card > strong,
+.purse-summary strong,
+.demo-card > strong {
+  font-family: var(--f-display);
+  font-weight: 330;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: -0.04em;
+  font-variation-settings: "opsz" 72;
+}
+.price-center > strong {
+  font-size: 168px;
+}
+.receipt-total strong,
+.budget-label,
+.app-recent time,
+.mini-panel i,
+.price-center > strong small,
+.stats-grid small {
+  font-family: var(--f-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Buttons: engraved plates, not SaaS pills ---------- */
+.button {
+  border-radius: 7px;
+  font-size: 15px;
+  font-weight: 520;
+  letter-spacing: 0.005em;
+  min-height: 46px;
+  padding: 12px 22px;
+}
+.primary {
+  background: var(--bone);
+  color: var(--ink-1);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    inset 0 -1px 0 rgba(23, 24, 45, 0.18),
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 10px 24px -12px rgba(0, 0, 0, 0.6);
+}
+.primary:hover {
+  background: #fff;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    inset 0 -1px 0 rgba(23, 24, 45, 0.18),
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 14px 30px -12px rgba(0, 0, 0, 0.7);
+}
+.glass,
+.outline {
+  backdrop-filter: none;
+  background: transparent;
+  border: 1px solid rgba(243, 239, 230, 0.34);
+}
+.glass:hover,
+.outline:hover {
+  background: rgba(243, 239, 230, 0.08);
+  border-color: rgba(243, 239, 230, 0.6);
+}
+.underlined {
+  font-size: 15px;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 6px;
+}
+/* On paper, the primary plate becomes ink */
+[data-theme="light"] .primary,
+.light-zone .primary {
+  background: var(--ink-1);
+  color: var(--bone);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 10px 24px -14px rgba(23, 24, 45, 0.8);
+}
+
+/* Header: quieter nav, mono CTA labels */
+.site-header {
+  height: 68px;
+}
+.desktop-nav {
+  font-size: 14.5px;
+  gap: 34px;
+  letter-spacing: 0.005em;
+}
+.desktop-nav > a,
+.nav-trigger {
+  min-height: 68px;
+}
+.nav-actions .button.small {
+  min-height: 38px;
+  padding: 8px 16px;
+  font-size: 14px;
+}
+.site-header.scrolled {
+  background: rgba(18, 19, 31, 0.86);
+  border-color: var(--hair-dark);
+}
+.site-header.light {
+  background: rgba(243, 239, 230, 0.9);
+  border-color: var(--hair-light);
+}
+.site-header.light .primary {
+  background: var(--ink-1);
+  color: var(--bone);
+}
+.wordmark > span {
+  font-family: var(--f-ui);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.32em;
+}
+.nav-dropdown {
+  border-radius: 4px;
+  background: var(--bone);
+  border: 1px solid var(--hair-light);
+  box-shadow:
+    0 1px 0 #fff inset,
+    0 24px 48px -20px rgba(18, 19, 31, 0.45);
+}
+
+/* ---------- Hero: editorial, left-set, on the record ---------- */
+.hero-shade {
+  background:
+    linear-gradient(90deg, rgba(18, 19, 31, 0.62) 0%, rgba(18, 19, 31, 0.18) 46%, transparent 70%),
+    linear-gradient(180deg, rgba(18, 19, 31, 0.35) 0%, transparent 40%, rgba(18, 19, 31, 0.25) 100%);
+}
+.hero-content {
+  top: clamp(112px, 15vh, 168px);
+  left: clamp(24px, 6vw, 96px);
+  transform: none;
+  width: min(760px, calc(100% - 48px));
+  text-align: left;
+}
+.hero-kicker {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 26px;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(243, 239, 230, 0.82);
+}
+.hero-kicker .seal-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--wax);
+  box-shadow: 0 0 0 3px rgba(180, 68, 46, 0.25);
+}
+.hero-kicker .rule {
+  flex: 0 0 56px;
+  height: 1px;
+  background: rgba(243, 239, 230, 0.5);
+}
+.hero h1 {
+  font-size: clamp(52px, 6.4vw, 104px);
+  line-height: 0.96;
+  letter-spacing: -0.035em;
+  white-space: normal;
+  font-weight: 340;
+  color: #f7f4ee;
+  text-shadow: 0 1px 30px rgba(18, 19, 31, 0.25);
+}
+.hero h1 em {
+  color: #dfe1f6;
+}
+.hero-content > p {
+  margin: 26px 0 0;
+  max-width: 520px;
+  font-size: 18.5px;
+  line-height: 1.5;
+  color: rgba(247, 244, 238, 0.88);
+}
+.hero-actions {
+  justify-content: flex-start;
+  gap: 12px;
+  margin-top: 36px;
+}
+.compound-cta {
+  border-radius: 9px;
+  background: rgba(18, 19, 31, 0.32);
+  border-color: rgba(243, 239, 230, 0.22);
+  backdrop-filter: blur(8px);
+  gap: 18px;
+  padding: 4px 4px 4px 16px;
+}
+.compound-cta > span {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding-right: 6px;
+}
+.hero-note {
+  bottom: 28px;
+  left: clamp(24px, 6vw, 96px);
+  transform: none;
+  width: auto;
+  max-width: min(760px, calc(100% - 48px));
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  border-top: 1px solid rgba(243, 239, 230, 0.3);
+  padding: 14px 0 0;
+  text-align: left;
+  font-size: 10.5px;
+  line-height: 1.6;
+  letter-spacing: 0.12em;
+  color: rgba(243, 239, 230, 0.78);
+}
+.scroll-cue {
+  font-family: var(--f-mono);
+  font-size: 18px;
+  bottom: 28px;
+}
+
+/* ---------- Section furniture: engraved rules + guilloché ---------- */
+.engraved-rule {
+  display: block;
+  height: 26px;
+  margin: 0 auto;
+  width: min(1136px, calc(100% - 80px));
+  opacity: 0.5;
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='26' viewBox='0 0 120 26'><g fill='none' stroke='%23b9bccb' stroke-width='.6'><path d='M0 13 C15 1 45 1 60 13 S105 25 120 13'/><path d='M0 13 C15 25 45 25 60 13 S105 1 120 13'/><path d='M0 13 C20 5 40 5 60 13 S100 21 120 13' opacity='.6'/><path d='M0 13 C20 21 40 21 60 13 S100 5 120 13' opacity='.6'/></g></svg>")
+    repeat-x center / 120px 26px;
+  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+}
+
+/* Office accordion — numbered like a register */
+.product-accordion {
+  counter-reset: reg;
+}
+.product-accordion .accordion-item h3 button::before {
+  counter-increment: reg;
+  content: counter(reg, decimal-leading-zero);
+  font-family: var(--f-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  opacity: 0.5;
+  margin-right: 16px;
+  vertical-align: 2px;
+}
+.accordion-item h3 {
+  font-size: 17px;
+}
+
+/* Model marquee: quieter marks, mono sublabels */
+.model-brand strong {
+  font-family: var(--f-ui);
+  font-weight: 540;
+  letter-spacing: -0.005em;
+}
+.audience-types small {
+  font-size: 10px;
+}
+
+/* Manifesto — set like an epigraph */
+.manifesto blockquote::before {
+  content: "“";
+  display: block;
+  font-family: var(--f-display);
+  font-style: italic;
+  font-size: 1.9em;
+  line-height: 0.6;
+  margin-bottom: 0.15em;
+  opacity: 0.35;
+}
+
+/* Cards: hairline + inner highlight, less blur */
+.feature-grid > *,
+.operations-grid > *,
+.security-grid > *,
+.resource-card {
+  border-radius: 10px;
+}
+
+/* Stats: tabular serif + ruled */
+.stats-grid > div {
+  border-color: var(--hair-dark) !important;
+}
+.stats-grid strong {
+  font-size: clamp(40px, 3.6vw, 56px);
+}
+
+/* Closing: big serif, left-aligned colophon */
+.closing-section h2 em {
+  color: var(--periwinkle);
+}
+
+/* Footer: colophon voice */
+footer .footer-columns h4 {
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.footer-colophon {
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px solid var(--hair-dark);
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+}
+
+@media (max-width: 760px) {
+  .hero-content {
+    left: 20px;
+    width: calc(100% - 40px);
+    top: 104px;
+  }
+  .hero h1 {
+    font-size: clamp(44px, 12.5vw, 64px);
+  }
+  .hero-content > p {
+    font-size: 16.5px;
+  }
+  .hero-actions {
+    flex-wrap: wrap;
+  }
+  .hero-note {
+    left: 20px;
+    max-width: calc(100% - 40px);
+  }
+  .price-center > strong {
+    font-size: 128px;
+  }
+  .engraved-rule {
+    width: calc(100% - 40px);
+  }
+}
+
+/* ---------- Fit pass ---------- */
+.hero-content {
+  top: clamp(100px, 11.5vh, 132px);
+}
+.hero-kicker {
+  margin-bottom: 20px;
+}
+.hero h1 {
+  font-size: clamp(50px, 5.3vw, 88px);
+}
+.hero-content > p {
+  margin-top: 22px;
+  max-width: 470px;
+  font-size: 17.5px;
+}
+.hero-actions {
+  margin-top: 30px;
+}
+.story-copy h2 {
+  font-size: clamp(30px, 2.7vw, 42px);
+  text-wrap: balance;
+}
+.stats-grid strong {
+  font-size: clamp(30px, 2.6vw, 42px);
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .stats-grid strong {
+    white-space: normal;
+  }
+}
+/* Keep the CTA row clear of the laptop on shorter / narrower screens */
+@media (max-height: 820px), (max-width: 1360px) {
+  .hero-actions > .button.glass {
+    display: none;
+  }
+}
+@media (max-width: 760px) {
+  .hero-kicker .rule {
+    display: none;
+  }
+  .hero-kicker {
+    font-size: 10px;
+    letter-spacing: 0.14em;
+  }
+  .hero-content > p {
+    font-size: 16px;
+    margin-top: 16px;
+  }
+  .hero-actions {
+    margin-top: 22px;
+  }
+  .compound-cta > span {
+    display: none;
+  }
+  .compound-cta {
+    padding: 4px;
+  }
+}

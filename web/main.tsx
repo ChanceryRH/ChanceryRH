@@ -2,6 +2,8 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import "./styles.css";
+import { applyTheme, storedTheme } from "./theme";
+applyTheme(storedTheme());
 class Boundary extends React.Component<
   { children: React.ReactNode },
   { failed: boolean }

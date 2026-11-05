@@ -31,13 +31,12 @@ import {
   Empty,
   Feedback,
   Field,
-  JsonDetails,
   Modal,
-  PageTitle,
-  Panel,
   submit,
   useAction,
 } from "../ui";
+import { Pill, SidePanel, SideItem, SideSection, avatarStyle } from "../shell";
+import { dayGroup, shortId, time } from "../data";
 export function Rooms() {
   const { office, account } = useOffice(),
     action = useAction(),
@@ -71,7 +70,9 @@ export function Rooms() {
       local.id = registered.id;
       await store(deviceKey, local);
       setDevice(local);
-      await loadRooms();
+      const rows = await api.office(office.id, "/rooms");
+      setRooms(rows);
+      if (rows[0]) await open(rows[0], local);
     });
   }, [office.id, account.id]);
   async function open(r: any, d = device) {
@@ -215,65 +216,77 @@ export function Rooms() {
     await api.office(office.id, `/rooms/${room.id}/items`, item);
     await open(room);
   }
-  if (deviceRemoved)
-    return (
-      <Empty title="This device has been revoked." icon={<KeyRound />}>
-        Its server access is removed and affected Rooms require key rotation.
-        Use another approved device to continue. This browser’s private key is
-        retained locally; it will never be silently replaced.
-      </Empty>
-    );
-  return (
-    <>
-      <PageTitle
-        eyebrow="KEEP THE ROOM IN THE ROOM"
-        title="A private space for shared thinking."
-        actions={
-          office.role !== "guest" ? (
-            <Button disabled={!device?.id} onClick={() => setCreating(true)}>
-              <Plus size={16} />
-              New Room
-            </Button>
-          ) : undefined
-        }
-      >
-        Room messages are encrypted on your device. Sealed Rooms do not send
-        content to AI.
-      </PageTitle>
-      <Feedback action={action} />
-      <div className="rooms-layout">
-        <Panel className="room-list">
-          <div className="section-heading">
-            <h2>Your Rooms</h2>
-            <button
-              className="icon-button"
-              aria-label="Refresh Rooms"
-              onClick={() => action.run(loadRooms)}
-            >
-              <RefreshCw size={16} />
-            </button>
-          </div>
-          {rooms.map((r) => (
-            <button
+  const guest = office.role === "guest";
+  const roomName = (r: any) => `Room ${r.id.slice(-6)}`;
+  const deviceCount = directory?.devices?.length || 0;
+  const canWrite =
+    !!directory && !directory.rotationRequired && keys.has(directory.epoch);
+  const panel = (
+    <SidePanel
+      title="Rooms"
+      action={
+        <button
+          className="icon-button"
+          aria-label="Refresh Rooms"
+          title="Refresh"
+          disabled={action.busy}
+          onClick={() => action.run(loadRooms)}
+        >
+          <RefreshCw size={15} />
+        </button>
+      }
+    >
+      {!guest && (
+        <button
+          className="side-new"
+          disabled={!device?.id || deviceRemoved}
+          onClick={() => setCreating(true)}
+        >
+          <Plus size={15} />
+          New Room
+        </button>
+      )}
+      <SideSection label="Your Rooms">
+        {rooms.length ? (
+          rooms.map((r) => (
+            <SideItem
               key={r.id}
-              className={`room-link ${room?.id === r.id ? "active" : ""}`}
+              active={room?.id === r.id}
+              leading={<LockKeyhole size={15} />}
+              title={roomName(r)}
+              meta={`${r.retention_days}-day retention · ${dayGroup(r.created_at)}`}
+              trailing={
+                r.rotation_required ? (
+                  <Pill tone="amber">Rotate key</Pill>
+                ) : undefined
+              }
               onClick={() => action.run(() => open(r))}
-            >
-              <LockKeyhole size={19} />
-              <span>
-                Room {r.id.slice(-6)}
-                <small>{r.retention_days}-day retention</small>
-              </span>
-            </button>
-          ))}
-          {!rooms.length && (
-            <p className="muted">Your encrypted spaces will appear here.</p>
-          )}
-          <details className="device-details">
-            <summary>This device</summary>
-            <p className="mono">{device?.id}</p>
-            <Button
-              kind="ghost"
+              disabled={deviceRemoved}
+            />
+          ))
+        ) : (
+          <p className="side-note">
+            {action.busy && !device
+              ? "Setting up this device…"
+              : "Your encrypted spaces will appear here."}
+          </p>
+        )}
+      </SideSection>
+      <SideSection label="This device">
+        <div className="device-card">
+          <span className="device-line">
+            <KeyRound size={14} />
+            {deviceRemoved ? (
+              "Revoked"
+            ) : device?.id ? (
+              <code title={device.id}>{shortId(device.id)}</code>
+            ) : (
+              "Registering…"
+            )}
+          </span>
+          <div className="device-actions">
+            <button
+              className="link"
               onClick={() =>
                 action.run(async () => {
                   await navigator.clipboard.writeText(account.id);
@@ -284,10 +297,10 @@ export function Rooms() {
               }
             >
               Copy my account ID
-            </Button>
-            <Button
-              kind="ghost"
-              disabled={!device?.id}
+            </button>
+            <button
+              className="link"
+              disabled={!device?.id || deviceRemoved}
               onClick={() =>
                 action.run(async () => {
                   action.setNotice(
@@ -297,10 +310,10 @@ export function Rooms() {
               }
             >
               Show fingerprint
-            </Button>
-            <Button
-              kind="danger"
-              disabled={!device?.id}
+            </button>
+            <button
+              className="link danger"
+              disabled={!device?.id || deviceRemoved}
               onClick={() =>
                 action.run(async () => {
                   await api.request(
@@ -315,110 +328,195 @@ export function Rooms() {
               }
             >
               Revoke this device
-            </Button>
-          </details>
-        </Panel>
-        <Panel className="room-thread">
-          {room ? (
-            <>
-              <div className="section-heading">
-                <h2>
-                  <LockKeyhole size={19} />
-                  Room {room.id.slice(-6)}
-                </h2>
-                <div className="actions">
-                  <Badge>Sealed</Badge>
-                  <button
-                    className="icon-button"
-                    aria-label="Refresh Room"
-                    onClick={() => action.run(() => open(room))}
-                  >
-                    <RefreshCw size={16} />
-                  </button>
-                  {manager && (
-                    <Button kind="ghost" onClick={() => setManaging(true)}>
-                      <Users size={16} />
-                      Members
-                    </Button>
-                  )}
-                </div>
-              </div>
-              {directory?.rotationRequired && (
-                <div className="notice warning">
-                  <KeyRound size={18} />
-                  <span>
-                    Membership or devices changed. A manager must rotate the key
-                    before new messages can be sent.
-                  </span>
-                  {manager && (
-                    <Button
-                      kind="secondary"
-                      onClick={() => action.run(() => reviewKeys())}
-                    >
-                      Rotate key
-                    </Button>
-                  )}
-                </div>
+            </button>
+          </div>
+        </div>
+      </SideSection>
+    </SidePanel>
+  );
+  if (deviceRemoved)
+    return (
+      <>
+        {panel}
+        <Feedback action={action} />
+        <Empty title="This device has been revoked." icon={<KeyRound />}>
+          Its server access is removed and affected Rooms require key rotation.
+          Use another approved device to continue. This browser’s private key is
+          retained locally; it will never be silently replaced.
+        </Empty>
+      </>
+    );
+  return (
+    <div className="chat-page room-page">
+      {panel}
+      {room ? (
+        <>
+          <header className="chat-head">
+            <div>
+              <h1>{roomName(room)}</h1>
+              <p className="room-meta">
+                <Pill tone="ink">
+                  <LockKeyhole size={11} /> Sealed
+                </Pill>
+                <span>Key epoch {directory?.epoch ?? room.epoch}</span>
+                <span>
+                  {deviceCount} device{deviceCount === 1 ? "" : "s"}
+                </span>
+                <span>{room.retention_days}-day retention</span>
+              </p>
+            </div>
+            <div className="head-actions">
+              <button
+                className="icon-button"
+                aria-label="Refresh Room"
+                title="Refresh"
+                disabled={action.busy}
+                onClick={() => action.run(() => open(room))}
+              >
+                <RefreshCw size={15} />
+              </button>
+              {manager && (
+                <Button kind="secondary" onClick={() => setManaging(true)}>
+                  <Users size={14} />
+                  Members
+                </Button>
               )}
-              <div className="room-messages">
-                {items.map((item) => (
-                  <article key={item.id}>
-                    <small>
-                      {item.account_id === account.id
-                        ? "You"
-                        : short(item.account_id)}{" "}
-                      · {date(item.created_at)}
-                    </small>
-                    <p>{item.content}</p>
-                  </article>
-                ))}
-                {!items.length && (
-                  <Empty
-                    title="Keep this between yourselves."
-                    icon={<LockKeyhole />}
-                  >
-                    Only current members with the right device keys can read the
-                    conversation.
-                  </Empty>
-                )}
+            </div>
+          </header>
+          <Feedback action={action} />
+          {directory?.rotationRequired && (
+            <div className="notice warning">
+              <KeyRound size={16} />
+              <span>
+                Membership or devices changed. A manager must rotate the key
+                before new messages can be sent.
+              </span>
+              {manager && (
+                <Button
+                  kind="secondary"
+                  onClick={() => action.run(() => reviewKeys())}
+                >
+                  Rotate key
+                </Button>
+              )}
+            </div>
+          )}
+          <div className={`chat-content ${items.length ? "has-messages" : ""}`}>
+            {items.length ? (
+              <div className="messages">
+                {items.map((item) => {
+                  const mine = item.account_id === account.id;
+                  return (
+                    <article key={item.id} className="message user">
+                      <span
+                        className="message-avatar tinted"
+                        style={avatarStyle(mine && account.wallet ? account.wallet : item.account_id)}
+                      >
+                        {mine && account.wallet
+                          ? account.wallet.slice(2, 4).toUpperCase()
+                          : item.account_id
+                              .replace(/^[a-z]+_/, "")
+                              .slice(0, 2)
+                              .toUpperCase()}
+                      </span>
+                      <div className="message-body">
+                        <span className="message-author">
+                          {mine ? "You" : short(item.account_id)}
+                          <time>
+                            {dayGroup(item.created_at)} ·{" "}
+                            {time(item.created_at)}
+                          </time>
+                        </span>
+                        <p className="room-text">{item.content}</p>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
-              <form onSubmit={submit(() => action.run(send))}>
-                <Field label="Encrypted message">
-                  <textarea
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    maxLength={60000}
-                    rows={3}
-                    disabled={
-                      directory?.rotationRequired || !keys.has(directory?.epoch)
-                    }
-                    placeholder="Share a thought with your Room…"
-                  />
-                </Field>
-                {guard && <p className="error-text">{guard.message}</p>}
+            ) : (
+              <Empty
+                title="Keep this between yourselves."
+                icon={<LockKeyhole />}
+              >
+                Only current members with the right device keys can read the
+                conversation.
+              </Empty>
+            )}
+          </div>
+          <form
+            className="composer-wrap"
+            onSubmit={submit(() => action.run(send))}
+          >
+            <div className={`composer ${guard ? "blocked" : ""}`}>
+              <textarea
+                aria-label="Encrypted message"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                maxLength={60000}
+                rows={2}
+                disabled={!canWrite}
+                placeholder={
+                  canWrite
+                    ? "Share a thought with your Room…"
+                    : "Waiting for a key rotation that includes this device."
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    if (text.trim() && !guard && canWrite && !action.busy)
+                      void action.run(send);
+                  }
+                }}
+              />
+              <div className="composer-controls">
+                <span className="lane-label">
+                  <ShieldCheck size={14} />
+                  End-to-end encrypted · never sent to AI
+                </span>
+                {guard && (
+                  <span className="guard-message">{guard.message}</span>
+                )}
+                <span className="composer-budget" />
                 <Button
                   type="submit"
                   busy={action.busy}
-                  disabled={
-                    !text.trim() ||
-                    !!guard ||
-                    directory?.rotationRequired ||
-                    !keys.has(directory?.epoch)
-                  }
+                  disabled={!text.trim() || !!guard || !canWrite}
                 >
                   Encrypt & send
-                  <ArrowUp size={16} />
+                  <ArrowUp size={15} />
                 </Button>
-              </form>
-            </>
-          ) : (
-            <Empty title="Choose a Room." icon={<LockKeyhole />}>
-              Your conversation stays encrypted from one member’s device to
-              another.
-            </Empty>
-          )}
-        </Panel>
-      </div>
+              </div>
+            </div>
+          </form>
+        </>
+      ) : (
+        <>
+          <Feedback action={action} />
+          <Empty
+            title={
+              rooms.length
+                ? "Choose a Room."
+                : "A private space for shared thinking."
+            }
+            icon={<LockKeyhole />}
+            action={
+              !guest && !rooms.length ? (
+                <Button
+                  disabled={!device?.id}
+                  onClick={() => setCreating(true)}
+                >
+                  <Plus size={15} />
+                  New Room
+                </Button>
+              ) : undefined
+            }
+          >
+            Room messages are encrypted on your device and stay encrypted from
+            one member’s device to another. Sealed Rooms never send content to
+            AI.
+          </Empty>
+        </>
+      )}
       {creating && (
         <Modal
           title="Make a little private space."
@@ -549,6 +647,6 @@ export function Rooms() {
           <Feedback action={action} />
         </Modal>
       )}
-    </>
+    </div>
   );
 }

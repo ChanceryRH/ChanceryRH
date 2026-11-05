@@ -1,3 +1,4 @@
+import { flushSync } from "react-dom";
 import {
   createContext,
   lazy,
@@ -18,23 +19,25 @@ import {
   AudioLines,
   Building2,
   ChevronDown,
-  CircleHelp,
+  CircleCheck,
   Fingerprint,
-  LayoutDashboard,
+  House,
   LockKeyhole,
   LogOut,
-  Menu,
+  Monitor,
+  Moon,
+  Sun,
+  PanelLeft,
   MessageSquare,
   Plus,
   ReceiptText,
   RefreshCw,
-  Settings2,
+  Settings,
   ShieldCheck,
+  Sparkle,
   Sparkles,
   Users,
   Wallet as WalletIcon,
-  X,
-  FileCheck2,
 } from "lucide-react";
 import {
   api,
@@ -66,15 +69,35 @@ import {
   useAction,
 } from "./ui";
 import { Overview } from "./pages/Overview";
+import {
+  resolvedTheme,
+  saveTheme,
+  storedTheme,
+  watchSystemTheme,
+  type Theme,
+} from "./theme";
 import { Ledger } from "./pages/Ledger";
 import { People } from "./pages/People";
 import { Proposals } from "./pages/Proposals";
-import { Settings } from "./pages/Settings";
+import { Settings as SettingsPage } from "./pages/Settings";
+import {
+  AllowanceFooter,
+  avatarStyle,
+  CommandMenu,
+  PanelHostProvider,
+  type Command,
+} from "./shell";
 const Chat = lazy(() =>
   import("./pages/Chat").then((module) => ({ default: module.Chat })),
 );
 const Updates = lazy(() =>
   import("./pages/Updates").then((module) => ({ default: module.Updates })),
+);
+const ClerksPage = lazy(() =>
+  import("./pages/Updates").then((module) => ({ default: module.ClerksRoute })),
+);
+const RoomsPage = lazy(() =>
+  import("./pages/Updates").then((module) => ({ default: module.RoomsRoute })),
 );
 export type Context = {
   account: Account;
@@ -85,17 +108,22 @@ export type Context = {
   refresh: () => Promise<void>;
   navigate: (page: string) => void;
   onProposal: () => Promise<void>;
+  newChat: () => void;
+  pendingApprovals: number;
+  reloadApprovals: () => Promise<void>;
 };
 export const OfficeContext = createContext<Context | null>(null);
 export const useOffice = () => useContext(OfficeContext)!;
 const routes = [
-  ["overview", "Overview", LayoutDashboard],
+  ["overview", "Home", House],
   ["chat", "Workspace", MessageSquare],
+  ["proposals", "Approvals", CircleCheck],
   ["ledger", "Ledger", ReceiptText],
   ["people", "People", Users],
-  ["proposals", "Approvals", ShieldCheck],
-  ["updates", "Updates", Sparkles],
-  ["settings", "Office settings", Settings2],
+  ["clerks", "Clerks", Sparkle],
+  ["rooms", "Rooms", LockKeyhole],
+  ["updates", "More", Sparkles],
+  ["settings", "Settings", Settings],
 ] as const;
 const pageFromHash = () => {
   const value = location.hash.replace(/^#\/?/, "").split("?")[0];
@@ -115,10 +143,59 @@ export function App() {
     [picker, setPicker] = useState(false),
     [creation, setCreation] = useState(false),
     [joining, setJoining] = useState(false),
-    [selected, setSelected] = useState("");
+    [selected, setSelected] = useState(""),
+    [chatKey, setChatKey] = useState(0),
+    [pendingApprovals, setPendingApprovals] = useState(0),
+    [accountMenu, setAccountMenu] = useState(false),
+    [panelHost, setPanelHost] = useState<HTMLElement | null>(null),
+    [theme, setThemeState] = useState<Theme>(storedTheme),
+    [, setSystemTick] = useState(0);
   const action = useAction();
+  const dark = resolvedTheme(theme) === "dark";
+  /* Switching light/dark reveals the new theme as a circle growing from
+     the control that was pressed. Falls back to an instant swap. */
+  function setTheme(next: Theme, from?: Element | null) {
+    const apply = () => {
+      saveTheme(next);
+      flushSync(() => setThemeState(next));
+    };
+    const doc = document as Document & {
+      startViewTransition?: (cb: () => void) => { ready: Promise<void> };
+    };
+    if (
+      !doc.startViewTransition ||
+      resolvedTheme(next) === resolvedTheme(theme) ||
+      matchMedia("(prefers-reduced-motion: reduce)").matches
+    )
+      return apply();
+    const box = from?.getBoundingClientRect();
+    const x = box ? box.left + box.width / 2 : innerWidth / 2,
+      y = box ? box.top + box.height / 2 : 0;
+    const r = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    doc
+      .startViewTransition(apply)
+      .ready.then(() =>
+        document.documentElement.animate(
+          { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] },
+          { duration: 560, easing: "cubic-bezier(.22,.8,.24,1)", pseudoElement: "::view-transition-new(root)" },
+        ),
+      )
+      .catch(() => {});
+  }
+  /* Re-render when the OS appearance changes while following the system. */
+  useEffect(() => watchSystemTheme(() => setSystemTick((n) => n + 1)), []);
   const current = useRef({ accountId: account?.id, selected });
   current.current = { accountId: account?.id, selected };
+  /* On narrow screens the panel is a drawer; close it once an item is chosen.
+     Panel content is portaled in, so listen on the DOM node itself. */
+  useEffect(() => {
+    if (!panelHost) return;
+    const close = (e: MouseEvent) => {
+      if ((e.target as Element).closest(".side-item")) setMobile(false);
+    };
+    panelHost.addEventListener("click", close);
+    return () => panelHost.removeEventListener("click", close);
+  }, [panelHost]);
   function navigate(next: string) {
     location.hash = `/${next}`;
     setPage(next);
@@ -214,6 +291,23 @@ export function App() {
       active = false;
     };
   }, [selected, account?.id]);
+  async function reloadApprovals() {
+    if (!office || office.role !== "principal") {
+      setPendingApprovals(0);
+      return;
+    }
+    const id = office.id;
+    const rows = await api
+      .office(id, "/proposals")
+      .catch(() => [] as any[]);
+    if (current.current.selected === id)
+      setPendingApprovals(
+        rows.filter((r: any) => r.status === "pending").length,
+      );
+  }
+  useEffect(() => {
+    void reloadApprovals();
+  }, [office?.id, office?.role, office?.status]);
   async function refresh() {
     if (!account) return;
     const owner = account.id;
@@ -233,7 +327,6 @@ export function App() {
     setAccount(a);
     navigate("overview");
   }
-  const title = routes.find((r) => r[0] === page)?.[1] || "Overview";
   const context =
     account && office && config
       ? {
@@ -244,157 +337,188 @@ export function App() {
           provider,
           refresh,
           navigate,
+          newChat: () => {
+            setChatKey((k) => k + 1);
+            navigate("chat");
+          },
+          pendingApprovals,
+          reloadApprovals,
           onProposal: async () => {
             await refresh();
+            await reloadApprovals();
             navigate("proposals");
           },
         }
       : null;
+  const commands: Command[] = context
+    ? [
+        ...routes.map(([id, label]) => ({
+          id: `go:${id}`,
+          label: `Go to ${label}`,
+          hint: "Page",
+          run: () => navigate(id),
+        })),
+        { id: "new-chat", label: "New chat", hint: "Action", run: context.newChat },
+        ...(office?.role === "principal" || office?.role === "officer"
+          ? [{ id: "invite", label: "Invite a teammate", hint: "People", run: () => { location.hash = "/people?invite"; setPage("people"); } }]
+          : []),
+        { id: "export", label: "Export this month’s ledger", hint: "Ledger", run: () => navigate("ledger") },
+        { id: "refresh", label: "Refresh Office", hint: "Action", run: () => void action.run(refresh) },
+        { id: "theme-dark", label: "Use dark theme", hint: "Appearance", run: () => setTheme("dark") },
+        { id: "theme-light", label: "Use light theme", hint: "Appearance", run: () => setTheme("light") },
+        { id: "theme-system", label: "Match system appearance", hint: "Appearance", run: () => setTheme("system") },
+      ]
+    : [];
+  const showRail = !!context;
   return (
-    <div className="app-shell">
-      {mobile && (
-        <button
-          className="sidebar-scrim"
-          aria-label="Close navigation"
-          onClick={() => setMobile(false)}
-        />
-      )}
-      <aside className={`sidebar ${mobile ? "open" : ""}`}>
-        <a href="/" className="brand">
-          <img src="/app/brand/mark.svg" alt="" />
-          <span>CHANCERY</span>
-        </a>
-        <div className="office-selector">
-          <button disabled={!account} onClick={() => setPicker(!picker)}>
-            <span className="office-avatar">
-              {office?.name.slice(0, 1) || <Building2 size={19} />}
-            </span>
-            <span>
-              <strong>{office?.name || "Your Office"}</strong>
-              <small>
-                {office ? `${office.role} access` : "A place for your team"}
-              </small>
-            </span>
-            <ChevronDown size={15} />
-          </button>
-          {picker && (
-            <div className="office-menu">
-              {offices.map((o) => (
-                <button
-                  key={o.id}
-                  onClick={() => {
-                    setSelected(o.id);
-                    setPicker(false);
-                    navigate("overview");
-                  }}
-                >
-                  {o.name}
-                  <small>{o.status}</small>
-                </button>
-              ))}
-              <button
-                onClick={() => {
-                  setCreation(true);
-                  setPicker(false);
-                }}
-              >
-                <Plus size={14} />
-                Open an Office
-              </button>
-              <button
-                onClick={() => {
-                  setJoining(true);
-                  setPicker(false);
-                }}
-              >
-                <Users size={14} />
-                Join an Office
-              </button>
-            </div>
-          )}
-        </div>
-        <div className="nav-label">WORKSPACE</div>
-        <nav aria-label="Main navigation">
-          {routes.map(([id, label, Icon]) => (
-            <button
-              key={id}
-              className={page === id ? "active" : ""}
-              onClick={() => navigate(id)}
-              aria-current={page === id ? "page" : undefined}
-            >
-              <Icon size={18} />
-              <span>{label}</span>
-              {id === "updates" && <span className="nav-count">5</span>}
-            </button>
-          ))}
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="sidebar-note">
-            <ShieldCheck size={19} />
-            <strong>Owned by your team.</strong>
-            <p>
-              Your Safe sets the limits.
-              <br />
-              Every spend leaves a receipt.
-            </p>
-          </div>
-          <a className="quiet-link" href="/">
-            <CircleHelp size={17} />
-            About Chancery
-            <ArrowUpRight size={14} />
+    <div className={`app-shell ${showRail ? "" : "bare"} ${mobile ? "side-open" : ""}`}>
+      {showRail && (
+        <nav className="rail" aria-label="Main navigation">
+          <a href="/" className="rail-mark" aria-label="Chancery home">
+            <img src="/app/brand/mark-ink.svg" alt="" />
           </a>
-          <div className="account-line">
-            <span className="account-avatar">
-              {account ? <Fingerprint size={18} /> : <LockKeyhole size={18} />}
-            </span>
-            <div>
-              <strong>
-                {account
-                  ? account.wallet
-                    ? short(account.wallet)
-                    : "Passkey member"
-                  : "Private by design"}
-              </strong>
-              <small>
-                {account ? "Signed in" : "Wallet or passkey access"}
-              </small>
-            </div>
-            {account && (
+          <div className="rail-items">
+            {routes.map(([id, label, Icon]) => (
               <button
-                aria-label="Sign out"
-                title="Sign out"
-                className="icon-button"
-                onClick={() =>
-                  action.run(async () => {
-                    await api.logout();
-                    api.csrfToken = null;
-                    setAccount(null);
-                    setProvider(null);
-                  })
-                }
+                key={id}
+                className={`rail-item ${page === id ? "active" : ""} ${id === "settings" ? "pinned" : ""}`}
+                onClick={() => navigate(id)}
+                aria-current={page === id ? "page" : undefined}
+                aria-label={label}
+                data-tip={label}
               >
-                <LogOut size={16} />
+                <Icon size={20} strokeWidth={1.75} />
+                {id === "proposals" && pendingApprovals > 0 && (
+                  <span className="rail-badge">{pendingApprovals}</span>
+                )}
               </button>
+            ))}
+          </div>
+          <div className="rail-account">
+            <button
+              className={`rail-avatar ${account?.wallet ? "tinted" : ""}`}
+              style={account?.wallet ? avatarStyle(account.wallet) : undefined}
+              aria-label="Account"
+              aria-expanded={accountMenu}
+              onClick={() => setAccountMenu(!accountMenu)}
+            >
+              {account?.wallet ? account.wallet.slice(2, 4).toUpperCase() : <Fingerprint size={16} />}
+            </button>
+            {accountMenu && account && (
+              <div className="popover account-popover">
+                <strong>{account.wallet ? short(account.wallet) : "Passkey member"}</strong>
+                <small>{office ? `${office.role} · ${office.name}` : "Signed in"}</small>
+                <div className="theme-choice" role="radiogroup" aria-label="Appearance">
+                  {(
+                    [
+                      ["system", "System", Monitor],
+                      ["light", "Light", Sun],
+                      ["dark", "Dark", Moon],
+                    ] as const
+                  ).map(([id, label, Icon]) => (
+                    <button
+                      key={id}
+                      role="radio"
+                      aria-checked={theme === id}
+                      className={theme === id ? "active" : ""}
+                      onClick={(e) => setTheme(id, e.currentTarget)}
+                    >
+                      <Icon size={13} />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <a href="/" className="popover-link">
+                  About Chancery <ArrowUpRight size={13} />
+                </a>
+                <button
+                  className="popover-link"
+                  onClick={() =>
+                    action.run(async () => {
+                      setAccountMenu(false);
+                      await api.logout();
+                      api.csrfToken = null;
+                      setAccount(null);
+                      setProvider(null);
+                    })
+                  }
+                >
+                  <LogOut size={14} /> Sign out
+                </button>
+              </div>
             )}
           </div>
-        </div>
-      </aside>
-      <div className="app-body">
+        </nav>
+      )}
+      <div className="app-frame">
         <header className="topbar">
-          <button
-            className="icon-button mobile-toggle"
-            aria-label="Open navigation"
-            onClick={() => setMobile(true)}
-          >
-            <Menu size={21} />
-          </button>
-          <div className="breadcrumbs">
-            <span>Office</span>
-            <span>/</span>
-            <strong>{title}</strong>
-          </div>
+          {showRail ? (
+            <button
+              className="icon-button side-toggle"
+              aria-label="Toggle page panel"
+              onClick={() => setMobile(!mobile)}
+            >
+              <PanelLeft size={18} />
+            </button>
+          ) : (
+            <a href="/" className="bare-brand">
+              <img src="/app/brand/mark-ink.svg" alt="" />
+              <span>Chancery</span>
+            </a>
+          )}
+          {account && (
+            <div className="office-switcher">
+              <button
+                className="switcher-button"
+                onClick={() => setPicker(!picker)}
+                aria-expanded={picker}
+              >
+                <span className="switcher-mark">
+                  {office?.name.slice(0, 1) || <Building2 size={14} />}
+                </span>
+                <span className="switcher-name">{office?.name || "Choose an Office"}</span>
+                <ChevronDown size={15} />
+              </button>
+              {picker && (
+                <div className="popover office-menu">
+                  {offices.map((o) => (
+                    <button
+                      key={o.id}
+                      className={o.id === selected ? "active" : ""}
+                      onClick={() => {
+                        setSelected(o.id);
+                        setPicker(false);
+                        navigate("overview");
+                      }}
+                    >
+                      <span>{o.name}</span>
+                      <small>{o.status}</small>
+                    </button>
+                  ))}
+                  <hr />
+                  <button
+                    onClick={() => {
+                      setCreation(true);
+                      setPicker(false);
+                    }}
+                  >
+                    <Plus size={14} /> Open an Office
+                  </button>
+                  <button
+                    onClick={() => {
+                      setJoining(true);
+                      setPicker(false);
+                    }}
+                  >
+                    <Users size={14} /> Join an Office
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          {context && <CommandMenu commands={commands} />}
           <div className="topbar-right">
-            <span className="network-pill">
+            <span className="network-pill" title="Robinhood Chain · 4663">
               <i />
               Robinhood Chain
             </span>
@@ -417,133 +541,164 @@ export function App() {
                   })
                 }
               >
-                Connect wallet
+                <WalletIcon size={15} />
+                <span className="hide-sm">Connect wallet</span>
               </Button>
             )}
+            <button
+              className="icon-button"
+              aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
+              title={dark ? "Light theme" : "Dark theme"}
+              onClick={(e) => setTheme(dark ? "light" : "dark", e.currentTarget)}
+            >
+              {dark ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
             {account && (
               <button
                 className="icon-button"
                 aria-label="Refresh Office"
-                onClick={() => action.run(refresh)}
+                title="Refresh Office"
+                onClick={() => action.run(async () => { await refresh(); await reloadApprovals(); })}
                 disabled={action.busy}
               >
-                <RefreshCw size={17} className={action.busy ? "spin" : ""} />
+                <RefreshCw size={16} className={action.busy ? "spin" : ""} />
               </button>
+            )}
+            {context && (
+              <Button onClick={context.newChat} disabled={office?.role === "guest"}>
+                <MessageSquare size={15} />
+                New chat
+              </Button>
             )}
           </div>
         </header>
-        <main className="main">
-          <Feedback action={action} />
-          {loading ? (
-            <div className="loading">
-              <AudioLines className="pulse" />
-              <p>Opening your workspace…</p>
-            </div>
-          ) : fatal ? (
-            <Empty
-              title="Let’s reconnect."
-              action={<Button onClick={boot}>Try again</Button>}
-            >
-              {fatal}
-            </Empty>
-          ) : !account && config ? (
-            <Welcome
-              config={config}
-              signedIn={signedIn}
-              setProvider={setProvider}
-            />
-          ) : account && config && !selected ? (
-            <>
-              <PageTitle
-                eyebrow="YOUR NEXT CHAPTER"
-                title="A little space to do great work."
-              >
-                Start an Office for your team, or join one you’ve been invited
-                to.
-              </PageTitle>
-              <div className="start-grid">
-                <Panel>
-                  <Building2 size={30} />
-                  <h2>Open your Office</h2>
-                  <p>
-                    Connect an existing Safe, choose a budget and invite your
-                    team.
-                  </p>
-                  <Button
-                    onClick={() => setCreation(true)}
-                    disabled={!account.wallet || !config.registry}
-                  >
-                    Open an Office
-                    <Plus size={16} />
-                  </Button>
-                  {!account.wallet && (
-                    <small>
-                      Sign in with a Safe owner wallet to open an Office.
-                    </small>
-                  )}
-                  {!config.registry && (
-                    <small>
-                      Office creation will be available when network setup is
-                      complete.
-                    </small>
-                  )}
-                </Panel>
-                <Panel>
-                  <Users size={30} />
-                  <h2>Find your people</h2>
-                  <p>
-                    Have an invitation? Join with your wallet or passkey. Your
-                    Safe owners approve access.
-                  </p>
-                  <Button kind="secondary" onClick={() => setJoining(true)}>
-                    Join an Office
-                    <ArrowUpRight size={16} />
-                  </Button>
-                </Panel>
-              </div>
-            </>
-          ) : context ? (
-            <OfficeContext.Provider value={context}>
-              <Suspense
-                fallback={
-                  <div className="loading">Opening your workspace…</div>
-                }
-              >
-                <div key={`${account!.id}:${office!.id}`}>
-                  <OfficeState office={office!} navigate={navigate} />
-                  {page === "overview" ? (
-                    <Overview />
-                  ) : page === "chat" ? (
-                    <Chat />
-                  ) : page === "ledger" ? (
-                    <Ledger />
-                  ) : page === "people" ? (
-                    <People />
-                  ) : page === "proposals" ? (
-                    <Proposals />
-                  ) : page === "settings" ? (
-                    <Settings />
-                  ) : (
-                    <Updates />
-                  )}
-                </div>
-              </Suspense>
-            </OfficeContext.Provider>
-          ) : (
-            <div className="loading">
-              <RefreshCw className="spin" />
-              <p>Loading your Office…</p>
-            </div>
+        <div className="workspace">
+          {showRail && (
+            <aside className="side" aria-label="Page panel">
+              <div className="side-host" ref={setPanelHost} />
+              {office && (
+                <AllowanceFooter
+                  name={office.name}
+                  capUsd={office.capUsd}
+                  spentUsd={office.spentUsd}
+                />
+              )}
+            </aside>
           )}
-        </main>
-        <footer className="app-footer">
-          <span>
-            CHANCERY <i /> Your team. Your treasury. Your rules.
-          </span>
-          <span>
-            <ShieldCheck size={12} /> Guards always on
-          </span>
-        </footer>
+          {mobile && (
+            <button
+              className="side-scrim"
+              aria-label="Close page panel"
+              onClick={() => setMobile(false)}
+            />
+          )}
+          <main className="main">
+            <Feedback action={action} />
+            {loading ? (
+              <div className="loading">
+                <AudioLines className="pulse" />
+                <p>Opening your workspace…</p>
+              </div>
+            ) : fatal ? (
+              <Empty
+                title="Let’s reconnect."
+                action={<Button onClick={boot}>Try again</Button>}
+              >
+                {fatal}
+              </Empty>
+            ) : !account && config ? (
+              <Welcome
+                config={config}
+                signedIn={signedIn}
+                setProvider={setProvider}
+              />
+            ) : account && config && !selected ? (
+              <div className="start">
+                <PageTitle title="Start your Office">
+                  Open an Office for your team from an existing Safe, or join one
+                  you’ve been invited to.
+                </PageTitle>
+                <div className="start-grid">
+                  <Panel>
+                    <Building2 size={22} />
+                    <h2>Open an Office</h2>
+                    <p>
+                      Connect an existing Safe, choose a budget and invite your
+                      team.
+                    </p>
+                    <Button
+                      onClick={() => setCreation(true)}
+                      disabled={!account.wallet || !config.registry}
+                    >
+                      Open an Office
+                      <Plus size={15} />
+                    </Button>
+                    {!account.wallet && (
+                      <small>
+                        Sign in with a Safe owner wallet to open an Office.
+                      </small>
+                    )}
+                    {!config.registry && (
+                      <small>
+                        Office creation will be available when network setup is
+                        complete.
+                      </small>
+                    )}
+                  </Panel>
+                  <Panel>
+                    <Users size={22} />
+                    <h2>Join an Office</h2>
+                    <p>
+                      Have an invitation? Join with your wallet or passkey. Your
+                      Safe owners approve access.
+                    </p>
+                    <Button kind="secondary" onClick={() => setJoining(true)}>
+                      Join an Office
+                      <ArrowUpRight size={15} />
+                    </Button>
+                  </Panel>
+                </div>
+              </div>
+            ) : context ? (
+              <OfficeContext.Provider value={context}>
+                <PanelHostProvider value={panelHost}>
+                  <Suspense
+                    fallback={<div className="loading">Opening your workspace…</div>}
+                  >
+                    {/* Keyed by page too, so every navigation replays the entrance. */}
+                    <div key={`${account!.id}:${office!.id}:${page}`} className="page">
+                      <OfficeState office={office!} navigate={navigate} />
+                      {page === "overview" ? (
+                        <Overview />
+                      ) : page === "chat" ? (
+                        <Chat key={chatKey} />
+                      ) : page === "ledger" ? (
+                        <Ledger />
+                      ) : page === "people" ? (
+                        <People />
+                      ) : page === "proposals" ? (
+                        <Proposals />
+                      ) : page === "settings" ? (
+                        <SettingsPage />
+                      ) : page === "clerks" ? (
+                        <ClerksPage />
+                      ) : page === "rooms" ? (
+                        <RoomsPage />
+                      ) : (
+                        <Updates />
+                      )}
+                    </div>
+                  </Suspense>
+                </PanelHostProvider>
+              </OfficeContext.Provider>
+            ) : (
+              <div className="loading">
+                <RefreshCw className="spin" />
+                <p>Loading your Office…</p>
+              </div>
+            )}
+          </main>
+        </div>
       </div>
       {creation && config && account && (
         <CreateOffice

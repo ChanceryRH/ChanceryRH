@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { formatUnits, keccak256, toBytes } from "viem";
 import {
-  ArrowLeft,
   ArrowUpRight,
   Bot,
   FileCheck2,
@@ -28,6 +27,7 @@ import {
   useAction,
 } from "../ui";
 import { Clerks } from "./Clerks";
+import { Pill, SidePanel, SideItem, SideSection } from "../shell";
 import { Rooms } from "./Rooms";
 const descriptions: Record<string, { icon: typeof Bot; text: string }> = {
   rooms: {
@@ -51,43 +51,127 @@ const descriptions: Record<string, { icon: typeof Bot; text: string }> = {
     text: "Eligible Office holdings unlock platform and seat-fee discounts and roadmap voting.",
   },
 };
+function Gate({
+  id,
+  title,
+  children,
+}: {
+  id: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  const { config, office, navigate } = useOffice();
+  const feature = config.updates.find((u) => u.id === id),
+    item = descriptions[id];
+  const note = (
+    <SidePanel title={title}>
+      <SideSection>
+        <p className="side-note">{item?.text}</p>
+      </SideSection>
+    </SidePanel>
+  );
+  if (!feature?.enabled)
+    return (
+      <>
+        {note}
+        <div className="coming">
+          <span className="coming-icon">
+            {item ? <item.icon size={22} /> : <Sparkles size={22} />}
+          </span>
+          <Pill>Coming next</Pill>
+          <h2>{feature?.name || "Not released yet"}</h2>
+          <p>{item?.text}</p>
+          <p className="muted">
+            This update is switched on by your Chancery deployment. It can’t be
+            enabled from the dashboard.
+          </p>
+          <Button kind="secondary" onClick={() => navigate("updates")}>
+            See all updates
+          </Button>
+        </div>
+      </>
+    );
+  if (office.status !== "active")
+    return (
+      <>
+        {note}
+        <Empty title="Open your Office first.">
+          Updates become available after your Office’s opening approval is
+          confirmed.
+        </Empty>
+      </>
+    );
+  return <>{children}</>;
+}
+/* Rooms and Clerks own the side panel, so they live on their own routes. */
+const routed: Record<string, string> = {
+  rooms: "rooms",
+  clerks: "clerks",
+  safe_drafts: "clerks?draft",
+};
+export function ClerksRoute() {
+  return (
+    <Gate id="clerks" title="Clerks">
+      <Clerks initialDraft={location.hash.includes("draft")} />
+    </Gate>
+  );
+}
+export function RoomsRoute() {
+  return (
+    <Gate id="rooms" title="Rooms">
+      <Rooms />
+    </Gate>
+  );
+}
 export function Updates() {
-  const { config, office } = useOffice(),
+  const { config, office, navigate } = useOffice(),
     [selected, setSelected] = useState("");
+  const choose = (id: string) =>
+    routed[id] ? navigate(routed[id]) : setSelected(id);
   const feature = config.updates.find((u) => u.id === selected);
   return (
     <>
+      <SidePanel title="More">
+        <SideSection label="Updates">
+          <SideItem
+            active={!selected}
+            onClick={() => setSelected("")}
+            title="Overview"
+          />
+          {config.updates.map((u) => (
+            <SideItem
+              key={u.id}
+              active={selected === u.id}
+              disabled={!u.enabled}
+              onClick={() => choose(u.id)}
+              title={u.name}
+              trailing={
+                <Pill tone={u.enabled ? "green" : ""}>
+                  {u.enabled ? "On" : "Soon"}
+                </Pill>
+              }
+            />
+          ))}
+        </SideSection>
+      </SidePanel>
       {feature?.enabled ? (
-        <>
-          <button className="back-link" onClick={() => setSelected("")}>
-            <ArrowLeft size={15} />
-            All updates
-          </button>
-          {office.status !== "active" ? (
-            <Empty title="Open your Office first.">
-              Updates become available after your Office’s opening approval is
-              confirmed.
-            </Empty>
-          ) : selected === "rooms" ? (
-            <Rooms />
-          ) : selected === "clerks" || selected === "safe_drafts" ? (
-            <Clerks initialDraft={selected === "safe_drafts"} />
-          ) : selected === "minutes" ? (
-            <Minutes />
-          ) : (
-            <Benefits />
-          )}
-        </>
+        office.status !== "active" ? (
+          <Empty title="Open your Office first.">
+            Updates become available after your Office’s opening approval is
+            confirmed.
+          </Empty>
+        ) : selected === "minutes" ? (
+          <Minutes />
+        ) : (
+          <Benefits />
+        )
       ) : (
         <>
-          <PageTitle
-            eyebrow="THE NEXT CHAPTER"
-            title="An Office that grows with you."
-          >
-            More ways to collaborate, delegate and keep a clear record.
+          <PageTitle title="Updates">
+            Five additions to the Office. Your deployment decides which are on.
           </PageTitle>
           <div className="updates-grid">
-            {config.updates.map((u, index) => {
+            {config.updates.map((u) => {
               const item = descriptions[u.id],
                 Icon = item?.icon || Sparkles;
               return (
@@ -97,24 +181,21 @@ export function Updates() {
                 >
                   <div className="update-card-top">
                     <span className="update-symbol">
-                      <Icon size={26} />
+                      <Icon size={18} />
                     </span>
-                    <Badge tone={u.enabled ? "green" : ""}>
+                    <Pill tone={u.enabled ? "green" : ""}>
                       {u.enabled ? "Available" : "Coming next"}
-                    </Badge>
+                    </Pill>
                   </div>
-                  <small className="eyebrow">
-                    UPDATE {String(index + 1).padStart(2, "0")}
-                  </small>
                   <h2>{u.name}</h2>
                   <p>{item?.text}</p>
                   <Button
-                    kind={u.enabled ? "primary" : "secondary"}
+                    kind="secondary"
                     disabled={!u.enabled}
-                    onClick={() => setSelected(u.id)}
+                    onClick={() => choose(u.id)}
                   >
-                    {u.enabled ? "Open feature" : "Not released yet"}
-                    {u.enabled && <ArrowUpRight size={16} />}
+                    {u.enabled ? "Open" : "Not released yet"}
+                    {u.enabled && <ArrowUpRight size={15} />}
                   </Button>
                 </Panel>
               );
@@ -130,7 +211,10 @@ function Minutes() {
     action = useAction(),
     [rows, setRows] = useState<any[]>([]),
     [body, setBody] = useState(""),
-    [verification, setVerification] = useState<{ valid: boolean; message: string } | null>(null);
+    [verification, setVerification] = useState<{
+      valid: boolean;
+      message: string;
+    } | null>(null);
   const manager = ["principal", "officer"].includes(office.role);
   async function load() {
     setRows(await api.office(office.id, "/minutes"));
@@ -209,7 +293,8 @@ function Minutes() {
                     const v = await api.request("/verify", {
                       envelope: r.envelope,
                     });
-                    const valid = v.valid &&
+                    const valid =
+                      v.valid &&
                       keccak256(toBytes(r.body)) === r.bodyHash &&
                       r.bodyHash === r.envelope.payload.bodyHash;
                     setVerification({
@@ -234,7 +319,10 @@ function Minutes() {
         ))}
       </div>
       {verification && (
-        <div className={`notice ${verification.valid ? "success" : "error"}`} role="status">
+        <div
+          className={`notice ${verification.valid ? "success" : "error"}`}
+          role="status"
+        >
           {verification.message}
         </div>
       )}
