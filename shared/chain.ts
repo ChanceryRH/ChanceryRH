@@ -7,7 +7,7 @@ export const RHC = {
   blockExplorers: {
     default: {
       name: "Robinhood Explorer",
-      url: "https://explorer.mainnet.chain.robinhood.com",
+      url: "https://robinhoodchain.blockscout.com",
     },
   },
 } as const;
