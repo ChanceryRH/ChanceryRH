@@ -1,4 +1,10 @@
+import { PRODUCTIVITY_UPDATES } from "./productivity.ts";
 export const UPDATES = [
+  ...PRODUCTIVITY_UPDATES.map((u) => ({
+    ...u,
+    dependencies: [] as const,
+    listed: false as const,
+  })),
   { id: "mcp", name: "AI connections", dependencies: [] },
   { id: "rooms", name: "Encrypted Rooms", dependencies: [] },
   { id: "clerks", name: "AI Clerks", dependencies: [] },
@@ -13,7 +19,12 @@ export const UPDATES = [
   { id: "playbooks", name: "Playbooks", dependencies: [], listed: false },
   { id: "side_by_side", name: "Side by Side", dependencies: [], listed: false },
   { id: "guest_passes", name: "Guest Passes", dependencies: [], listed: false },
-  { id: "reimbursements", name: "Reimbursements", dependencies: [], listed: false },
+  {
+    id: "reimbursements",
+    name: "Reimbursements",
+    dependencies: [],
+    listed: false,
+  },
   { id: "office_files", name: "Office Files", dependencies: [], listed: false },
 ] as const;
 export function listedUpdate(update: (typeof UPDATES)[number]) {

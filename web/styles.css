@@ -3700,3 +3700,7 @@ button.stat {
 .mcp-prompt-snippet { max-width: 600px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin: 6px 0; }
 .mcp-review-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 340px; overflow: auto; padding: 18px; border: 1px solid var(--border, #dce0e8); border-radius: 12px; font: inherit; line-height: 1.6; }
 @media(max-width: 650px) { .mcp-form-grid { grid-template-columns: 1fr; } .mcp-connection-row { align-items: flex-start; flex-direction: column; } }
+.personal-context,.draft-save {display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:8px 0;color:var(--muted);font-size:12px;}
+.personal-context details {max-width:100%;}
+.personal-context pre {white-space:pre-wrap;overflow-wrap:anywhere;max-height:180px;overflow:auto;}
+.draft-save small {font-size:11px;}

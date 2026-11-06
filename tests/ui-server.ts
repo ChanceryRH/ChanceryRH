@@ -7,10 +7,11 @@ import { simulateChain, TESTER, walletScript } from "./ui-chain.ts";
 import { safeTypedTypes } from "../shared/safe-signing.ts";
 import { typedSafeMessage } from "../server/chain.ts";
 import { createJobs } from "../server/jobs.ts";
+import { productivityIds } from "../shared/productivity.ts";
 if (process.env.NODE_ENV === "production")
   throw new Error("The browser fixture cannot run in production.");
 const runtime = await fixture(
-  "rooms,clerks,safe_drafts,minutes,token_benefits,mcp,playbooks,side_by_side,guest_passes,reimbursements,office_files",
+  "rooms,clerks,safe_drafts,minutes,token_benefits,mcp,playbooks,side_by_side,guest_passes,reimbursements,office_files," + productivityIds.join(","),
 );
 const port = Number(process.env.UI_PORT || 5181);
 runtime.cfg.origin = `http://localhost:${port}`;

@@ -398,7 +398,7 @@ export async function createApp(
     undefined,
     true,
   );
-  route("get", "/conversations", (a) => conversations.list(a));
+  route("get", "/conversations", (a) => conversations.list(a, cfg.released.has("chat_library")));
   route("post", "/conversations", (a, r) => conversations.create(a, r.body));
   route("get", "/conversations/:id/messages", (a, r) =>
     conversations.messages(a, param(r, "id")),

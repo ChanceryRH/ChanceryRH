@@ -41,20 +41,44 @@ export function createConversations(db: Database, crypto: CryptoService) {
       );
       return { id, ...input };
     },
-    async list(a: Access) {
-      return db.office(a.office.id, async (q) =>
-        (
-          await q.query(
-            "SELECT * FROM conversations WHERE account_id=$1 ORDER BY created_at DESC LIMIT 200",
-            [a.account.id],
-          )
-        ).map((c) => ({
-          id: c.id,
-          title: crypto.open(a.office.id, `conversation:${c.id}`, c.title_enc),
-          ephemeral: c.ephemeral,
-          createdAt: c.created_at,
-        })),
-      );
+    async list(a: Access, library = false) {
+      return db.office(a.office.id, async (q) => {
+        const rows = await q.query(
+          "SELECT * FROM conversations WHERE account_id=$1 ORDER BY created_at DESC LIMIT 200",
+          [a.account.id],
+        );
+        const meta = library
+          ? await q.query(
+              "SELECT id,value_enc FROM productivity_items WHERE account_id=$1 AND kind='chat_library'",
+              [a.account.id],
+            )
+          : [];
+        const settings = new Map(
+          meta.map((m) => [
+            m.id,
+            crypto.open(
+              a.office.id,
+              `personal:${a.account.id}:chat_library:${m.id}`,
+              m.value_enc,
+            ),
+          ]),
+        );
+        return rows
+          .map((c) => ({
+            id: c.id,
+            title: crypto.open(
+              a.office.id,
+              `conversation:${c.id}`,
+              c.title_enc,
+            ),
+            ephemeral: c.ephemeral,
+            createdAt: c.created_at,
+            pinned: !!settings.get(c.id)?.pinned,
+            archived: !!settings.get(c.id)?.archived,
+          }))
+          .filter((c) => !c.archived)
+          .sort((a, b) => Number(b.pinned) - Number(a.pinned));
+      });
     },
     async messages(a: Access, id: string) {
       return db.office(a.office.id, async (q) => {
@@ -90,6 +114,10 @@ export function createConversations(db: Database, crypto: CryptoService) {
         );
         await q.query("DELETE FROM messages WHERE conversation_id=$1", [id]);
         await q.query("DELETE FROM conversations WHERE id=$1", [id]);
+        await q.query(
+          "DELETE FROM productivity_items WHERE account_id=$1 AND kind='chat_library' AND id=$2",
+          [a.account.id, id],
+        );
       });
       return { deleted: true, billingReceiptsRetained: true };
     },

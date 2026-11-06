@@ -31,7 +31,7 @@ import { Button, Empty, Feedback, Field, useAction } from "../ui";
 import { Pill, SidePanel, SideItem, SideSection, avatarStyle } from "../shell";
 import { dayGroup, groupBy, time } from "../data";
 export function Chat() {
-  const { office, account, models, navigate } = useOffice(),
+  const { office, account, models, navigate, config } = useOffice(),
     action = useAction();
   const available = models.filter(
     (m) =>
@@ -68,6 +68,21 @@ export function Chat() {
         return null;
       }
     });
+  const [personalInstructions,setPersonalInstructions]=useState("");
+  const [useInstructions,setUseInstructions]=useState(false);
+  const [favoriteModels,setFavoriteModels]=useState<string[]>([]);
+  const [restoreDraft,setRestoreDraft]=useState<{id:string;text:string;title:string}|null>(null);
+  const enabled=(id:string)=>config.updates.some(u=>u.id===id&&u.enabled);
+  useEffect(()=>{
+    if(office.role==='guest'||office.status!=='active')return;
+    let active=true;
+    const load=async()=>{
+      if(enabled('personal_instructions')){const rows=await api.office(office.id,'/productivity/personal_instructions');if(active)setPersonalInstructions(rows[0]?.value.text||'');}
+      if(enabled('model_favorites')){const rows=await api.office(office.id,'/productivity/model_favorites');if(active){setFavoriteModels(rows[0]?.value.models||[]);const key=`chancery:chosen-model:${office.id}`,chosen=sessionStorage.getItem(key);if(chosen&&available.some(m=>m.id===chosen)){setModel(chosen);sessionStorage.removeItem(key);}}}
+      if(enabled('draft_recovery')){const key=`chancery:restore-draft:${office.id}`,id=sessionStorage.getItem(key);if(id){const rows=await api.office(office.id,'/productivity/draft_recovery');const draft=rows.find((r:any)=>r.id===id);if(active&&draft){setRestoreDraft({id: draft.id,...draft.value});sessionStorage.removeItem(key);}}}
+    };
+    void load().catch(e=>{if(active)action.setError(errorText(e));});return()=>{active=false;};
+  },[office.id]);
   const tail = useRef<HTMLDivElement>(null),
     inFlight = useRef(false);
   const chosen = available.find((m) => m.id === model) || available[0];
@@ -141,6 +156,7 @@ export function Chat() {
     const chat = {
       model: chosen.id,
       messages: [
+        ...(useInstructions && personalInstructions ? [{role:"system",content:personalInstructions}] : []),
         ...messages.map(({ role, content }) => ({ role, content })),
         { role: "user", content: prompt.trim() },
       ],
@@ -179,7 +195,7 @@ export function Chat() {
       id: submission.requestId,
       conversationId: submission.chat.conversationId,
     });
-    setMessages(submission.chat.messages);
+    setMessages(submission.chat.messages.filter((m:any)=>m.role!=="system"));
     setPrompt("");
     setPrepared(null);
     setResult({ status: "pending", id: submission.requestId });
@@ -190,7 +206,7 @@ export function Chat() {
           quoteId: submission.quote.id,
           chat: submission.chat,
         }),
-        submission.chat.messages,
+        submission.chat.messages.filter((m:any)=>m.role!=="system"),
       );
     } catch (error) {
       if (
@@ -201,7 +217,7 @@ export function Chat() {
           error.code === "provider_unconfigured")
       ) {
         savePending(null);
-        setMessages(submission.chat.messages.slice(0, -1));
+        setMessages(submission.chat.messages.filter((m:any)=>m.role!=="system").slice(0, -1));
         setPrompt(submission.chat.messages.at(-1).content);
         setResult(null);
       } else setResult({ status: "unconfirmed", id: submission.requestId });
@@ -253,12 +269,11 @@ export function Chat() {
     let id: string | null = null;
     try {
       id = sessionStorage.getItem("chancery:open-conversation");
-      sessionStorage.removeItem("chancery:open-conversation");
     } catch {}
-    if (!id || !conversations.length) return;
+    if (!id || !conversations.length || action.busy || pending) return;
     const c = conversations.find((x) => x.id === id);
-    if (c && !pending) void action.run(() => open(c));
-  }, [conversations.length]);
+    if (c) void action.run(async()=>{await open(c);sessionStorage.removeItem("chancery:open-conversation");});
+  }, [conversations, pending, action.busy]);
   function reset() {
     setConversation(null);
     setMessages([]);
@@ -349,9 +364,9 @@ export function Chat() {
               onChange={(e) => setModel(e.target.value)}
             >
               {!available.length && <option value="">Models unavailable</option>}
-              {available.map((m) => (
+              {[...available].sort((a,b)=>Number(favoriteModels.includes(b.id))-Number(favoriteModels.includes(a.id))).map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.name}
+                  {favoriteModels.includes(m.id)?"★ ":""}{m.name}
                 </option>
               ))}
             </select>
@@ -367,6 +382,8 @@ export function Chat() {
         {conversation?.ephemeral && <Pill>Temporary</Pill>}
       </header>
       <Feedback action={action} />
+      {restoreDraft&&<div className="notice"><FileText size={17}/><span>Restore “{restoreDraft.title}” into a new chat? Your saved draft stays in Your tools.</span><Button disabled={!!pending||action.busy||!!prepared} onClick={()=>{reset();setPrompt(restoreDraft.text);setRestoreDraft(null);}}>Restore saved prompt</Button><Button kind="ghost" onClick={()=>setRestoreDraft(null)}>Dismiss</Button></div>}
+
       {pending && (
         <div className="notice warning">
           <Clock3 size={17} />
@@ -508,6 +525,9 @@ export function Chat() {
         )}
       </div>
       <div className="composer-wrap">
+        {enabled('personal_instructions')&&personalInstructions&&<div className="personal-context"><label className="check-row"><input type="checkbox" checked={useInstructions} disabled={action.busy||!!pending||!!prepared} onChange={e=>setUseInstructions(e.target.checked)}/>Use my instructions for this request</label><details><summary>Review instructions</summary><pre className="tool-excerpt">{personalInstructions}</pre></details></div>}
+        {enabled('draft_recovery')&&<div className="draft-save"><Button kind="ghost" disabled={!prompt.trim()||action.busy||!!pending||!!prepared||ephemeral||!!conversation?.ephemeral||lane==='zero_retention'||!!guard} onClick={()=>action.run(async()=>{await api.office(office.id,'/productivity/draft_recovery',{title:prompt.trim().slice(0,80),text:prompt.trim(),version:0});action.setNotice('Draft saved securely in Your tools → Draft Recovery.');})}>Save draft</Button><small>Save explicitly. Temporary and zero-retention prompts stay unsaved.</small></div>}
+
         {prepared && (
           <div className="quote-strip" role="dialog" aria-label="Review price">
             <div>

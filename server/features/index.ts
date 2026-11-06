@@ -9,6 +9,7 @@ import type { Access, Offices } from "../offices.ts";
 import type { Ledger } from "../ledger.ts";
 import type { Clerks } from "../clerks.ts";
 import type { createConversations } from "../conversations.ts";
+import { register as productivity } from "./productivity.ts";
 import { register as playbooks } from "./playbooks.ts";
 import { register as sideBySide } from "./side-by-side.ts";
 import { register as guestPasses } from "./guest-passes.ts";
@@ -42,6 +43,7 @@ export type FeatureContext = {
 };
 // Each update owns one module. Its routes must pass its update ID as the gate.
 export function registerFeatures(ctx: FeatureContext) {
+  productivity(ctx);
   playbooks(ctx);
   sideBySide(ctx);
   guestPasses(ctx);

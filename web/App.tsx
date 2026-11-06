@@ -1,3 +1,4 @@
+import {productivityIds} from "../shared/productivity";
 import { flushSync } from "react-dom";
 import {
   createContext,
@@ -95,6 +96,7 @@ import {
   PanelHostProvider,
   type Command,
 } from "./shell";
+const ProductivityPage = lazy(() => import("./pages/Productivity").then(m=>({default:m.Productivity})));
 const Chat = lazy(() =>
   import("./pages/Chat").then((module) => ({ default: module.Chat })),
 );
@@ -140,6 +142,7 @@ export const useOffice = () => useContext(OfficeContext)!;
 const routes = [
   ["overview", "Home", House],
   ["chat", "Workspace", MessageSquare],
+  ["productivity", "Your tools", BookOpen],
   ["proposals", "Approvals", CircleCheck],
   ["ledger", "Ledger", ReceiptText],
   ["people", "People", Users],
@@ -164,7 +167,7 @@ const releasedPages: Record<string, string> = {
   guests: "guest_passes",
 };
 const shownRoute = (id: string, config: AppConfig | null) =>
-  !releasedPages[id] ||
+  id === "productivity" ? !!config?.updates.some(u=>productivityIds.includes(u.id as any)&&u.enabled) : !releasedPages[id] ||
   !!config?.updates.some((u) => u.id === releasedPages[id] && u.enabled);
 const pageFromHash = () => {
   const value = location.hash.replace(/^#\/?/, "").split("?")[0];
@@ -684,6 +687,8 @@ export function App() {
                         <Overview />
                       ) : page === "chat" ? (
                         <Chat key={chatKey} />
+                      ) : page === "productivity" ? (
+                        <ProductivityPage />
                       ) : page === "ledger" ? (
                         <Ledger />
                       ) : page === "people" ? (
