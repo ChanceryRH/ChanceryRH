@@ -11,7 +11,7 @@ Give good ideas room to grow. Keep control of the details that matter.
 
 <br />
 
-**CHNC · Contract address**
+**CCRY · Contract address**
 
 ```text
 0xa05496e2100cc14920d969f918343f863eae209e

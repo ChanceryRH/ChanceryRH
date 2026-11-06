@@ -307,6 +307,26 @@ export function Settings() {
       )}
       {section === "safe" && (
         <Panel className="card">
+          {editable && (
+            <div className="notice">
+              <p>
+                Restore the Office allowance if an external wallet change put
+                its period out of sync. Safe owner signatures are required.
+              </p>
+              <Button
+                kind="secondary"
+                busy={action.busy}
+                onClick={() =>
+                  action.run(async () => {
+                    await api.office(office.id, "/allowance/resync", {});
+                    await onProposal();
+                  })
+                }
+              >
+                Prepare allowance recovery
+              </Button>
+            </div>
+          )}
           <dl className="kv">
             <div>
               <dt>Safe</dt>
@@ -356,8 +376,9 @@ export function Settings() {
           <div>
             <h2>Close this Office</h2>
             <p>
-              Closure is permanent and stops all spending delegates. Export any
-              records you need first.
+              This Safe cannot open another Office in this Registry after
+              closure. Closure stops all spending delegates. Export any records
+              you need first.
             </p>
           </div>
           <Button
@@ -386,7 +407,8 @@ export function Settings() {
             <p className="muted">
               This prepares a Safe proposal. Closing becomes permanent when the
               owners execute it, and stops collection of outstanding
-              settlements.
+              settlements. The same Safe cannot reopen an Office in this
+              Registry.
             </p>
             <Field label={`Type “${office.name}” to continue`}>
               <input

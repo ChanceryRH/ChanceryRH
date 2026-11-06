@@ -49,7 +49,7 @@ export async function createApp(
     ledger = createLedger(db, cfg, chain, crypto, offices, provider),
     rooms = createRooms(db, crypto),
     clerks = createClerks(db, cfg, chain, crypto, offices, ledger),
-    updates = createUpdates(db, cfg, chain, crypto, offices, clerks);
+    updates = createUpdates(db, cfg, chain, crypto, offices, clerks, ledger);
   const conversations = createConversations(db, crypto);
   const mcp = createMcp({
     db,
@@ -368,6 +368,9 @@ export async function createApp(
   route("post", "/cap/propose", (a, r) =>
     offices.changeCap(a, r.body?.monthlyCap),
   );
+  route("post", "/allowance/resync", (a, r) =>
+    offices.resyncAllowance(a, r.body),
+  );
   route("post", "/close/propose", (a) => offices.close(a));
   route("get", "/proposals", (a) => offices.queue(a), undefined, true);
   route(
@@ -398,7 +401,9 @@ export async function createApp(
     undefined,
     true,
   );
-  route("get", "/conversations", (a) => conversations.list(a, cfg.released.has("chat_library")));
+  route("get", "/conversations", (a) =>
+    conversations.list(a, cfg.released.has("chat_library")),
+  );
   route("post", "/conversations", (a, r) => conversations.create(a, r.body));
   route("get", "/conversations/:id/messages", (a, r) =>
     conversations.messages(a, param(r, "id")),

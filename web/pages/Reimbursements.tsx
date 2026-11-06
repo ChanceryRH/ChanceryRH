@@ -13,7 +13,15 @@ import {
 import { useOffice } from "../App";
 import { api, date, money, short } from "../api";
 import { RHC } from "../../shared/chain";
-import { Button, Empty, Feedback, Field, Panel, submit, useAction } from "../ui";
+import {
+  Button,
+  Empty,
+  Feedback,
+  Field,
+  Panel,
+  submit,
+  useAction,
+} from "../ui";
 import { Pill, SidePanel, SideItem, SideSection, Stat } from "../shell";
 import "./Reimbursements.css";
 // Reimbursements (RELEASED_UPDATES=reimbursements). Rendered inside the update gate in Updates.tsx.
@@ -138,7 +146,10 @@ export function Reimbursements() {
     const next: Data = await api.office(office.id, "/reimbursements");
     setData(next);
     setSelected(
-      (s) => new Set([...s].filter((id) => next.review?.queue.some((r) => r.id === id))),
+      (s) =>
+        new Set(
+          [...s].filter((id) => next.review?.queue.some((r) => r.id === id)),
+        ),
     );
     return next;
   }
@@ -175,7 +186,10 @@ export function Reimbursements() {
     return (
       <>
         <SidePanel title="Reimbursements" />
-        <Empty title="Reimbursements are for Office members." icon={<HandCoins />}>
+        <Empty
+          title="Reimbursements are for Office members."
+          icon={<HandCoins />}
+        >
           Your guest access covers your invited Rooms only.
         </Empty>
       </>
@@ -269,8 +283,14 @@ export function Reimbursements() {
               active={view === "review"}
               leading={<ReceiptText size={15} />}
               title="To review"
-              meta={queue.length ? `${money(review.queueTotal)} USDG` : "All clear"}
-              trailing={queue.length ? <span className="count">{queue.length}</span> : undefined}
+              meta={
+                queue.length ? `${money(review.queueTotal)} USDG` : "All clear"
+              }
+              trailing={
+                queue.length ? (
+                  <span className="count">{queue.length}</span>
+                ) : undefined
+              }
               onClick={() => open("review")}
             />
             {review.awaiting.map((r) => item(r, true))}
@@ -349,8 +369,15 @@ export function Reimbursements() {
                     </thead>
                     <tbody>
                       {queue.map((r) => (
-                        <tr key={r.id} className="clickable" onClick={() => open(r.id)}>
-                          <td className="reimb-check" onClick={(e) => e.stopPropagation()}>
+                        <tr
+                          key={r.id}
+                          className="clickable"
+                          onClick={() => open(r.id)}
+                        >
+                          <td
+                            className="reimb-check"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <input
                               type="checkbox"
                               aria-label={`Select ${r.vendor}`}
@@ -365,7 +392,11 @@ export function Reimbursements() {
                             />
                           </td>
                           <td>
-                            {r.mine ? "You" : <code>{short(r.payoutWallet)}</code>}
+                            {r.mine ? (
+                              "You"
+                            ) : (
+                              <code>{short(r.payoutWallet)}</code>
+                            )}
                           </td>
                           <td>
                             {r.vendor}
@@ -388,7 +419,9 @@ export function Reimbursements() {
                   <Button
                     disabled={!picked.length || picked.length > 20}
                     busy={action.busy}
-                    onClick={() => action.run(() => approve(picked.map((r) => r.id)))}
+                    onClick={() =>
+                      action.run(() => approve(picked.map((r) => r.id)))
+                    }
                   >
                     <Check size={15} /> Approve selected
                   </Button>
@@ -405,8 +438,8 @@ export function Reimbursements() {
               <Wallet size={16} />
               <span>
                 {review.awaiting.length} approved payment
-                {review.awaiting.length === 1 ? " is" : "s are"} waiting for Safe
-                owner signatures.
+                {review.awaiting.length === 1 ? " is" : "s are"} waiting for
+                Safe owner signatures.
               </span>
               <button className="link" onClick={() => navigate("proposals")}>
                 Open Approvals <ArrowUpRight size={13} />
@@ -424,7 +457,8 @@ export function Reimbursements() {
           <header className="detail-head">
             <div>
               <h1>
-                {money(current.amount)} <small className="reimb-unit">USDG</small>
+                {money(current.amount)}{" "}
+                <small className="reimb-unit">USDG</small>
               </h1>
               <p>
                 {current.vendor} · {current.category} · {current.spentOn}
@@ -447,6 +481,28 @@ export function Reimbursements() {
               )}
             </div>
           )}
+          {current.status === "approved" &&
+            ["principal", "officer"].includes(office.role) && (
+              <Button
+                kind="secondary"
+                busy={action.busy}
+                onClick={() =>
+                  action.run(async () => {
+                    await api.office(
+                      office.id,
+                      `/reimbursements/${current.id}/return-to-review`,
+                      {},
+                    );
+                    await load();
+                    action.setNotice(
+                      "The stale payout batch is back in review. It requires a new approval.",
+                    );
+                  })
+                }
+              >
+                Return stale batch to review
+              </Button>
+            )}
           {current.status === "rejected" && current.reason && (
             <div className="notice error">
               <span>Rejected: {current.reason}</span>
@@ -478,7 +534,9 @@ export function Reimbursements() {
                 <div>
                   <dt>Paid to</dt>
                   <dd>
-                    <code title={current.payoutWallet}>{short(current.payoutWallet)}</code>
+                    <code title={current.payoutWallet}>
+                      {short(current.payoutWallet)}
+                    </code>
                   </dd>
                 </div>
                 <div>
@@ -501,7 +559,8 @@ export function Reimbursements() {
                         target="_blank"
                         rel="noreferrer"
                       >
-                        {short(current.transactionHash)} <ArrowUpRight size={13} />
+                        {short(current.transactionHash)}{" "}
+                        <ArrowUpRight size={13} />
                       </a>
                     </dd>
                   </div>
@@ -537,10 +596,19 @@ export function Reimbursements() {
                     placeholder="Reason the member will see"
                     aria-label="Reason for rejecting"
                   />
-                  <Button type="button" kind="ghost" onClick={() => setRejecting(false)}>
+                  <Button
+                    type="button"
+                    kind="ghost"
+                    onClick={() => setRejecting(false)}
+                  >
                     Cancel
                   </Button>
-                  <Button kind="danger" type="submit" busy={action.busy} disabled={!reason.trim()}>
+                  <Button
+                    kind="danger"
+                    type="submit"
+                    busy={action.busy}
+                    disabled={!reason.trim()}
+                  >
                     Reject
                   </Button>
                 </form>
@@ -553,7 +621,10 @@ export function Reimbursements() {
                   <Button kind="secondary" onClick={() => setRejecting(true)}>
                     <X size={15} /> Reject
                   </Button>
-                  <Button busy={action.busy} onClick={() => action.run(() => approve([current.id]))}>
+                  <Button
+                    busy={action.busy}
+                    onClick={() => action.run(() => approve([current.id]))}
+                  >
                     <Check size={15} /> Approve
                   </Button>
                 </div>
@@ -599,7 +670,9 @@ export function Reimbursements() {
           ) : (
             !data.canSubmit && (
               <div className="notice warning">
-                <span>The Office must be open before reimbursements can be paid.</span>
+                <span>
+                  The Office must be open before reimbursements can be paid.
+                </span>
               </div>
             )
           )}
@@ -608,16 +681,24 @@ export function Reimbursements() {
               onSubmit={submit(() => action.run(send))}
               aria-disabled={!data.canSubmit}
             >
-              <fieldset disabled={!data.canSubmit || action.busy} className="reimb-form">
+              <fieldset
+                disabled={!data.canSubmit || action.busy}
+                className="reimb-form"
+              >
                 <div className="form-grid">
-                  <Field label="Amount · USDG" help={`Up to ${money(data.maxAmount, 0)} USDG`}>
+                  <Field
+                    label="Amount · USDG"
+                    help={`Up to ${money(data.maxAmount, 0)} USDG`}
+                  >
                     <input
                       required
                       inputMode="decimal"
                       placeholder="0.00"
                       pattern="\d{1,9}(\.\d{1,6})?"
                       value={form.amount}
-                      onChange={(e) => setForm({ ...form, amount: e.target.value.trim() })}
+                      onChange={(e) =>
+                        setForm({ ...form, amount: e.target.value.trim() })
+                      }
                     />
                   </Field>
                   <Field label="Vendor">
@@ -626,7 +707,9 @@ export function Reimbursements() {
                       maxLength={120}
                       placeholder="Who you paid"
                       value={form.vendor}
-                      onChange={(e) => setForm({ ...form, vendor: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, vendor: e.target.value })
+                      }
                     />
                   </Field>
                   <Field label="Date on the receipt">
@@ -635,13 +718,17 @@ export function Reimbursements() {
                       type="date"
                       max={today()}
                       value={form.spentOn}
-                      onChange={(e) => setForm({ ...form, spentOn: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, spentOn: e.target.value })
+                      }
                     />
                   </Field>
                   <Field label="Category">
                     <select
                       value={form.category}
-                      onChange={(e) => setForm({ ...form, category: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, category: e.target.value })
+                      }
                     >
                       {data.categories.map((c) => (
                         <option key={c}>{c}</option>
@@ -661,7 +748,11 @@ export function Reimbursements() {
                   {receipt ? (
                     <div className="reimb-preview">
                       <img src={receipt} alt="Receipt preview" />
-                      <Button type="button" kind="ghost" onClick={() => setReceipt("")}>
+                      <Button
+                        type="button"
+                        kind="ghost"
+                        onClick={() => setReceipt("")}
+                      >
                         <X size={15} /> Remove
                       </Button>
                     </div>
@@ -669,8 +760,13 @@ export function Reimbursements() {
                     <label className="reimb-drop">
                       <ImagePlus size={20} />
                       <span>
-                        <strong>{reading ? "Preparing image…" : "Add a receipt photo"}</strong>
-                        <small>Optional. It is shrunk on this device and stored encrypted.</small>
+                        <strong>
+                          {reading ? "Preparing image…" : "Add a receipt photo"}
+                        </strong>
+                        <small>
+                          Optional. It is shrunk on this device and stored
+                          encrypted.
+                        </small>
                       </span>
                       <input
                         type="file"

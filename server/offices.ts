@@ -241,11 +241,60 @@ export function createOffices(
       "principal_required",
       "A Safe owner must prepare this change.",
     );
+    const createdBlock = await chain.client.getBlockNumber({ cacheTime: 0 });
     const prepared = await chain.prepare(a.office.safe, calls),
       id = uid("proposal_");
-    await db.office(a.office.id, (q) =>
-      q.query(
-        "INSERT INTO office_proposals(id,office_id,kind,safe_tx,payload,safe_tx_hash,nonce,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
+    await db.office(a.office.id, async (q) => {
+      await q.query("SELECT * FROM office_locks FOR UPDATE");
+      if (kind === "seats") {
+        const intent = payload as any;
+        assert(
+          prepared.transaction.nonce === intent.baseNonce,
+          409,
+          "proposal_stale",
+          "Safe state changed while preparing. Review the latest seats and try again.",
+        );
+        const current = await q.query(
+          "SELECT * FROM seats WHERE status='active' AND revoked_at IS NULL AND approved_root=$1",
+          [intent.baseSeatRoot],
+        );
+        assert(
+          current.length > 0 && root(current) === intent.baseSeatRoot,
+          409,
+          "seats_out_of_sync",
+          "Seat state changed. Reload before preparing this proposal.",
+        );
+      }
+      if (kind === "seats" || kind === "open") {
+        for (const seat of (payload as any).seats) {
+          const [current] = await q.query(
+            "SELECT authorization_version,revoked_at FROM seats WHERE id=$1 FOR UPDATE",
+            [seat.id],
+          );
+          assert(
+            current &&
+              !current.revoked_at &&
+              seat.authorization_version != null &&
+              String(current.authorization_version) ===
+                String(seat.authorization_version),
+            409,
+            "seat_state_changed",
+            "Membership changed while preparing. Reload and review the current seats.",
+          );
+        }
+      }
+      const [duplicate] = await q.query(
+        "SELECT id FROM office_proposals WHERE safe_tx_hash=$1 AND status IN ('pending','confirmed')",
+        [prepared.safeTxHash],
+      );
+      assert(
+        !duplicate,
+        409,
+        "proposal_duplicate",
+        "An identical Safe transaction already exists. Review that proposal first.",
+      );
+      return q.query(
+        "INSERT INTO office_proposals(id,office_id,kind,safe_tx,payload,safe_tx_hash,nonce,created_by,created_block) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
         [
           id,
           a.office.id,
@@ -255,9 +304,10 @@ export function createOffices(
           prepared.safeTxHash,
           prepared.transaction.nonce,
           a.account.id,
+          createdBlock.toString(),
         ],
-      ),
-    );
+      );
+    });
     return { id, kind, ...prepared };
   }
   async function reopenProposal(a: Access) {
@@ -369,6 +419,7 @@ export function createOffices(
           id: uid("seat_"),
           credential,
           role: "principal",
+          authorization_version: "0",
           monthly_cap_pico: monthly.toString(),
           expires_at: null,
           leaf: seatLeaf(credential, "principal", monthly.toString(), null),
@@ -519,9 +570,30 @@ export function createOffices(
           .max(200),
       })
       .parse(changes);
+    const baseSafe = await chain.safe(a.office.safe),
+      snapshot = await chain.snapshot(a.office.id);
+    const selected = new Set(input.seats.map((s) => s.id));
+    assert(
+      selected.size === input.seats.length,
+      400,
+      "seat_duplicate",
+      "Select each seat once.",
+    );
     const rows = await db.office(a.office.id, (q) =>
       q.query("SELECT * FROM seats WHERE revoked_at IS NULL"),
     );
+    const active = rows.filter(
+      (s) => s.status === "active" && s.approved_root === snapshot.seatRoot,
+    );
+    assert(
+      active.length > 0 && root(active) === snapshot.seatRoot,
+      409,
+      "seats_out_of_sync",
+      "Confirm the latest onchain seat proposal before making another change.",
+    );
+    const approvedSeatIds = rows
+      .filter((s) => selected.has(s.id) && s.status === "pending")
+      .map((s) => s.id);
     for (const change of input.seats) {
       const s = rows.find((x) => x.id === change.id);
       assert(
@@ -545,12 +617,16 @@ export function createOffices(
     for (const s of rows)
       if (
         s.role === "principal" &&
-        a.snapshot &&
-        !a.snapshot.owners.includes(s.credential.slice(7))
+        !snapshot.owners.includes(s.credential.slice(7))
       )
         s.revoked_at = new Date().toISOString();
     const kept = rows
-      .filter((s) => !s.revoked_at)
+      .filter(
+        (s) =>
+          !s.revoked_at &&
+          (selected.has(s.id) ||
+            (s.status === "active" && s.approved_root === snapshot.seatRoot)),
+      )
       .map((s) => ({
         ...s,
         expires_at: s.expires_at ? new Date(s.expires_at).toISOString() : null,
@@ -573,6 +649,10 @@ export function createOffices(
       ],
       {
         seatRoot,
+        baseSeatRoot: snapshot.seatRoot,
+        baseNonce: baseSafe.nonce,
+        changes: input.seats,
+        approvedSeatIds,
         seats: kept,
         revokedIds: rows.filter((s) => s.revoked_at).map((s) => s.id),
       },
@@ -647,6 +727,7 @@ export function createOffices(
       "Invite is invalid.",
     );
     const result = await db.office(id, async (q) => {
+      await q.query("SELECT * FROM office_locks FOR UPDATE");
       const [invite] = await q.query(
         "SELECT * FROM invites WHERE token_hash=$1 AND claimed_by IS NULL AND expires_at>now() FOR UPDATE",
         [hash(token)],
@@ -802,7 +883,8 @@ export function createOffices(
   }
   async function confirm(a: Access, id: string, txHash: Hex) {
     const p = await proposal(a, id);
-    if (p.status === "confirmed") return { status: "confirmed" };
+    if (p.status === "confirmed")
+      return { id, status: "confirmed", txHash: p.tx_hash };
     assert(
       await chain.confirmedSafeTransaction(
         txHash,
@@ -813,16 +895,83 @@ export function createOffices(
       "transaction_pending",
       "A confirmed successful Safe execution was not found.",
     );
-    const s = await chain.snapshot(a.office.id);
-    if (p.kind === "open" || p.kind === "seats") {
-      assert(
-        s.seatRoot === p.payload.seatRoot,
-        409,
-        "root_mismatch",
-        "The onchain seat root differs from this proposal.",
+    const snapshot = await chain.snapshot(a.office.id);
+    const clerkSnapshot = ["clerk", "allowance_sync"].includes(p.kind)
+      ? await chain.snapshot(a.office.id, p.payload.actorId)
+      : null;
+    return db.office(a.office.id, async (q) => {
+      await q.query("SELECT * FROM office_locks FOR UPDATE");
+      const [current] = await q.query(
+        "SELECT * FROM office_proposals WHERE id=$1 FOR UPDATE",
+        [id],
       );
-      await db.office(a.office.id, async (q) => {
-        for (const seat of p.payload.seats)
+      if (current.status === "confirmed")
+        return { id, status: "confirmed", txHash: current.tx_hash };
+      assert(
+        ["pending", "superseded"].includes(current.status),
+        409,
+        "proposal_unavailable",
+        "This proposal requires reconciliation.",
+      );
+      const [duplicate] = await q.query(
+        "SELECT id FROM office_proposals WHERE safe_tx_hash=$1 AND status='confirmed' AND id<>$2",
+        [p.safe_tx_hash, id],
+      );
+      assert(
+        !duplicate,
+        409,
+        "execution_already_claimed",
+        "This execution already confirmed another proposal. No additional payout was recorded.",
+      );
+      const [office] = await q.query(
+        "SELECT chain_block FROM offices WHERE id=$1",
+        [a.office.id],
+      );
+      assert(
+        !office.chain_block ||
+          BigInt(office.chain_block) <= BigInt(snapshot.block),
+        409,
+        "snapshot_stale",
+        "Reload the latest Office state before confirming.",
+      );
+      if (p.kind === "open" || p.kind === "seats") {
+        assert(
+          snapshot.seatRoot === p.payload.seatRoot,
+          409,
+          "root_mismatch",
+          "A newer onchain seat change must be reconciled first.",
+        );
+        for (const seat of p.payload.seats) {
+          const [currentSeat] = await q.query(
+            "SELECT revoked_at,status,authorization_version,credential,role,leaf FROM seats WHERE id=$1 FOR UPDATE",
+            [seat.id],
+          );
+          // Before revision binding existed, opening proposals contained only Safe owners.
+          // Preserve an unchanged pending owner seat only while that wallet still owns the Safe.
+          const legacyOwnerOpening =
+            p.kind === "open" &&
+            seat.authorization_version == null &&
+            currentSeat?.status === "pending" &&
+            String(currentSeat.authorization_version) === "0" &&
+            seat.role === "principal" &&
+            currentSeat.role === "principal" &&
+            currentSeat.credential === seat.credential &&
+            currentSeat.leaf === seat.leaf &&
+            snapshot.owners.some(
+              (owner) => `wallet:${owner.toLowerCase()}` === seat.credential,
+            );
+          assert(
+            currentSeat &&
+              !currentSeat.revoked_at &&
+              currentSeat.status !== "revoked" &&
+              (legacyOwnerOpening ||
+                (seat.authorization_version != null &&
+                  String(currentSeat.authorization_version) ===
+                    String(seat.authorization_version))),
+            409,
+            "seat_state_changed",
+            "Membership changed after this proposal was prepared. Review current seats; an old approval cannot restore access.",
+          );
           await q.query(
             "UPDATE seats SET role=$1,monthly_cap_pico=$2,expires_at=$3,leaf=$4,approved_root=$5,status='active',revoked_at=NULL WHERE id=$6",
             [
@@ -830,10 +979,11 @@ export function createOffices(
               seat.monthly_cap_pico,
               seat.expires_at,
               seat.leaf,
-              s.seatRoot,
+              snapshot.seatRoot,
               seat.id,
             ],
           );
+        }
         for (const seatId of p.payload.revokedIds || []) {
           const [removed] = await q.query(
             "UPDATE seats SET revoked_at=now(),status='revoked' WHERE id=$1 RETURNING account_id",
@@ -850,64 +1000,80 @@ export function createOffices(
             );
           }
         }
-      });
-      await db.query(
-        "UPDATE offices SET seat_root=$1,status='active',synced_at=now() WHERE id=$2",
-        [s.seatRoot, a.office.id],
-      );
-    } else if (p.kind === "policy") {
-      assert(
-        s.policyHash === p.payload.policyHash,
-        409,
-        "policy_mismatch",
-        "The onchain policy differs.",
-      );
-      await db.query(
-        "UPDATE offices SET policy=$1,policy_hash=$2 WHERE id=$3",
-        [JSON.stringify(p.payload.policy), s.policyHash, a.office.id],
-      );
-    } else if (p.kind === "clerk") {
-      const cs = await chain.snapshot(a.office.id, p.payload.actorId);
-      assert(
-        cs.actorActive &&
-          cs.allowanceUnits === BigInt(p.payload.allowanceUnits),
-        409,
-        "clerk_mismatch",
-        "The Clerk allowance is not active.",
-      );
-      await db.office(a.office.id, (q) =>
-        q.query(
+        await q.query("UPDATE offices SET seat_root=$1 WHERE id=$2", [
+          snapshot.seatRoot,
+          a.office.id,
+        ]);
+      } else if (p.kind === "policy") {
+        assert(
+          snapshot.policyHash === p.payload.policyHash,
+          409,
+          "policy_mismatch",
+          "The onchain policy differs.",
+        );
+        await q.query(
+          "UPDATE offices SET policy=$1,policy_hash=$2 WHERE id=$3",
+          [JSON.stringify(p.payload.policy), snapshot.policyHash, a.office.id],
+        );
+      } else if (p.kind === "clerk") {
+        assert(
+          clerkSnapshot?.actorActive &&
+            clerkSnapshot.allowanceUnits === BigInt(p.payload.allowanceUnits),
+          409,
+          "clerk_mismatch",
+          "The Clerk allowance is not active.",
+        );
+        await q.query(
           "UPDATE clerks SET status='active',delegate=$1,next_run_at=now() WHERE id=$2",
-          [cs.delegate, p.payload.clerkId],
-        ),
+          [clerkSnapshot.delegate, p.payload.clerkId],
+        );
+      } else if (p.kind === "allowance_sync") {
+        assert(
+          clerkSnapshot?.moduleEnabled &&
+            clerkSnapshot.actorActive &&
+            clerkSnapshot.allowancePeriod === clerkSnapshot.periodStart &&
+            clerkSnapshot.allowanceInterval === 43200 &&
+            clerkSnapshot.allowanceUnits === BigInt(p.payload.allowanceUnits),
+          409,
+          "allowance_mismatch",
+          "The allowance is not aligned. Review current Safe state.",
+        );
+      } else if (p.kind === "reimbursement") {
+        const ids: string[] = p.payload.reimbursementIds || [];
+        const rows = await q.query(
+          "SELECT id,status,proposal_id FROM reimbursements WHERE id IN(SELECT jsonb_array_elements_text($1::jsonb)) FOR UPDATE",
+          [JSON.stringify(ids)],
+        );
+        assert(
+          ids.length > 0 &&
+            rows.length === ids.length &&
+            rows.every((r) => r.status === "approved" && r.proposal_id === id),
+          409,
+          "payout_reconciliation_required",
+          "The linked payouts changed. Reconcile this execution before recording payment.",
+        );
+        await q.query(
+          "UPDATE reimbursements SET status='paid',tx_hash=$1,paid_at=now() WHERE proposal_id=$2 AND status='approved'",
+          [txHash, id],
+        );
+      }
+      await q.query(
+        "UPDATE offices SET owners=$1,threshold=$2,chain_block=$3,cap_pico=$4,status=$5,synced_at=now() WHERE id=$6",
+        [
+          JSON.stringify(snapshot.owners),
+          snapshot.threshold,
+          snapshot.block,
+          usdgToPico(snapshot.capUnits).toString(),
+          snapshot.active ? "active" : "closed",
+          a.office.id,
+        ],
       );
-    } else if (p.kind === "reimbursement") {
-      // Only the Reimbursements update proposes this kind; mark its requests paid.
-      await db.office(a.office.id, (q) =>
-        q.query(
-          "UPDATE reimbursements SET status='paid',proposal_id=$1,tx_hash=$2,paid_at=now() WHERE status='approved' AND id IN (SELECT jsonb_array_elements_text($3::jsonb))",
-          [id, txHash, JSON.stringify(p.payload.reimbursementIds || [])],
-        ),
-      );
-    }
-    await db.query(
-      "UPDATE offices SET owners=$1,threshold=$2,chain_block=$3,cap_pico=$4,status=$5,synced_at=now() WHERE id=$6",
-      [
-        JSON.stringify(s.owners),
-        s.threshold,
-        s.block,
-        usdgToPico(s.capUnits).toString(),
-        s.active ? "active" : "closed",
-        a.office.id,
-      ],
-    );
-    await db.office(a.office.id, (q) =>
-      q.query(
+      await q.query(
         "UPDATE office_proposals SET status='confirmed',tx_hash=$1 WHERE id=$2",
         [txHash, id],
-      ),
-    );
-    return { status: "confirmed", txHash };
+      );
+      return { id, status: "confirmed", txHash };
+    });
   }
   return {
     access,
@@ -919,19 +1085,26 @@ export function createOffices(
     reopenProposal,
     async refreshProposal(a: Access, id: string) {
       const p = await proposal(a, id);
+      if (p.status === "confirmed")
+        return { id, status: "confirmed", txHash: p.tx_hash };
       assert(
-        p.status === "pending" && Array.isArray(p.payload.calls),
+        p.status === "pending",
         409,
         "proposal_unavailable",
-        "This proposal cannot be refreshed.",
+        "This proposal cannot be reconciled.",
       );
-      const fresh = await propose(a, p.kind, p.payload.calls, p.payload);
-      await db.office(a.office.id, (q) =>
-        q.query("UPDATE office_proposals SET status='superseded' WHERE id=$1", [
-          id,
-        ]),
+      const executed = await chain.findSafeExecution(
+        a.office.safe,
+        p.safe_tx_hash,
+        p.created_block,
       );
-      return fresh;
+      if (executed) return confirm(a, id, executed);
+      // A new nonce creates a different authorization. Never silently replay an old payment or permission snapshot.
+      throw new ApiError(
+        409,
+        "proposal_rebuild_required",
+        "No execution was found. Prepare a new proposal from current settings and review it again. Return stale reimbursements to review before approving them again.",
+      );
     },
     changeSeats,
     invite,
@@ -1019,6 +1192,73 @@ export function createOffices(
         ],
         { capUsd: picoToUsdString(usdgToPico(amount)) },
       );
+    },
+    async resyncAllowance(a: Access, body: unknown) {
+      assert(
+        a.role === "principal",
+        403,
+        "principal_required",
+        "A Safe owner must restore allowances.",
+      );
+      const input = z
+        .strictObject({ clerkId: z.string().optional() })
+        .parse(body || {});
+      let actor = ZERO,
+        amount: bigint;
+      if (input.clerkId) {
+        const [clerk] = await db.office(a.office.id, (q) =>
+          q.query("SELECT monthly_cap_pico FROM clerks WHERE id=$1", [
+            input.clerkId,
+          ]),
+        );
+        assert(clerk, 404, "clerk_not_found", "Clerk not found.");
+        actor = keccak256(toBytes(`chancery:clerk:${input.clerkId}`));
+        amount = picoToUsdg(BigInt(clerk.monthly_cap_pico));
+      } else amount = (await chain.snapshot(a.office.id)).capUnits;
+      const snapshot = await chain.snapshot(a.office.id, actor);
+      assert(
+        snapshot.active && snapshot.actorActive,
+        409,
+        "allowance_inactive",
+        "Reauthorize this Office or Clerk before restoring its allowance.",
+      );
+      const calls: Call[] = [];
+      if (!snapshot.moduleEnabled)
+        calls.push({
+          to: a.office.safe,
+          data: encodeFunctionData({
+            abi: safeAbi,
+            functionName: "enableModule",
+            args: [ADDRESSES.allowanceModule],
+          }),
+        });
+      calls.push({
+        to: ADDRESSES.allowanceModule,
+        data: encodeFunctionData({
+          abi: allowanceAbi,
+          functionName: "addDelegate",
+          args: [snapshot.delegate],
+        }),
+      });
+      calls.push({
+        to: ADDRESSES.allowanceModule,
+        data: encodeFunctionData({
+          abi: allowanceAbi,
+          functionName: "setAllowance",
+          args: [
+            snapshot.delegate,
+            ADDRESSES.usdg,
+            amount,
+            43200,
+            snapshot.periodStart,
+          ],
+        }),
+      });
+      return propose(a, "allowance_sync", calls, {
+        actorId: actor,
+        allowanceUnits: amount.toString(),
+        periodStart: snapshot.periodStart,
+      });
     },
     async close(a: Access) {
       return propose(

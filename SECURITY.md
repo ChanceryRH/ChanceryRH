@@ -20,7 +20,7 @@ Chancery connects a browser, an API, a database and a settlement worker. The API
 
 ## Authorities and holders
 
-Deployment is pre-launch: concrete operator and governance addresses must be supplied through an independently reviewed deployment manifest. No personal holder identities or production infrastructure belong in this repository.
+Concrete operator and governance addresses are configured through an independently reviewed deployment manifest. No personal holder identities or production infrastructure belong in this repository.
 
 | Holder | Authority | Binding checks |
 | --- | --- | --- |
@@ -91,3 +91,15 @@ No known Medium or Low implementation finding is accepted as an exception. Opera
 | Build, authority, multisig and gas mismatches fail deployment verification | [deployment.test.ts](tests/deployment.test.ts): `Deployment verifier: every authority and infrastructure mismatch fails closed`; `Deployment verifier: wrong build, chain, unavailable reads and low gas are rejected` |
 
 These tests document their specific assertions; they do not claim universal route coverage or complete crash/reorganization testing.
+
+## Collection exposure and recovery
+
+Pay-after-use billing extends limited unsecured credit to each Office. The service limits in-flight and unpaid charges to 25 USDG per Office, stops new paid work when final charges remain unpaid for two hours, and selects settlement batches after one hour or when unbatched charges reach 10 USDG. Owners can still withdraw funds or disable collection, and separate Safes can repeat this exposure. These controls reduce exposure; they do not provide collateral or Sybil resistance. Risk owner: Chancery Maintainers. Review by: 2026-12-06. Escrow or prepaid balances require a separate product and contract review.
+
+A mined failed settlement can be retried only after canonical finalized failure is verified. The exact batch and receipt root are retained; previous signed attempts are preserved. Retries use a new transaction nonce, exponential backoff and a maximum of five signed attempts. Unknown outcomes are never replaced. Existing onchain replay protection still applies. An exhausted retry or an expired collection period requires explicit reconciliation.
+
+## Holder eligibility and permanent closure
+
+When token benefits are enabled, eligibility uses the minimum token balance over a rolling 24-hour window, reconstructed from the starting balance and every observed incoming and outgoing transfer. Unknown or inconsistent history does not qualify for a discount. The same eligibility path prices inference fees and daily seat fees. Quotes retain their approved pricing until expiry. Chain history availability remains an RPC dependency. `CCRY_TOKEN_ADDRESS` is the preferred configuration name; the prior `CHNC_TOKEN_ADDRESS` remains a compatibility alias and conflicting values are rejected.
+
+Closing an Office is permanent for its Safe in the configured Registry. Reopening that Safe, adding escrow, or imposing new onchain operator restrictions would require a separately reviewed contract version and migration. The existing operator authority remains bounded by the fixed treasury, Safe allowances and Office cap; backend recovery controls do not reduce the authority of a compromised operator key. Risk owner: Chancery Maintainers. Review by: 2026-12-06.

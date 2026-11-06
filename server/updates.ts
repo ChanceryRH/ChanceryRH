@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { reviewTransaction } from "../shared/transaction-review.ts";
+import { ApiError } from "./errors.ts";
 import { keccak256, toBytes, type Address, type Hex } from "viem";
 import { uid, hash, type CryptoService } from "./crypto.ts";
 import { assert } from "./errors.ts";
@@ -9,6 +11,7 @@ import type { Config } from "./config.ts";
 import type { Chain } from "./chain.ts";
 import type { Access, Offices } from "./offices.ts";
 import type { Clerks } from "./clerks.ts";
+import type { Ledger } from "./ledger.ts";
 export function createUpdates(
   db: Database,
   cfg: Config,
@@ -16,28 +19,17 @@ export function createUpdates(
   crypto: CryptoService,
   offices: Offices,
   clerks: Clerks,
+  ledger: Ledger,
 ) {
   async function benefits(a: Access) {
-    const holding = await chain.tokenBalance(a.office.safe),
-      units = holding.balance / 10n ** BigInt(holding.decimals),
-      tier =
-        units >= 25000000n
-          ? 3
-          : units >= 5000000n
-            ? 2
-            : units >= 1000000n
-              ? 1
-              : 0;
+    const eligibility = await ledger.benefitEligibility(a);
     return {
       token: cfg.tokenAddress,
       safe: a.office.safe,
-      balance: holding.balance.toString(),
-      decimals: holding.decimals,
-      tier,
-      discountPercent: [0, 10, 20, 30][tier],
+      ...eligibility,
       discountAppliesTo: ["platform_fee", "seat_fee"],
-      roadmapVote: tier === 3,
-      earlyFeatures: tier >= 2,
+      roadmapVote: eligibility.tier === 3,
+      earlyFeatures: eligibility.tier >= 2,
     };
   }
   return {
@@ -93,21 +85,22 @@ export function createUpdates(
         "simulation_failed",
         "This draft did not pass simulation.",
       );
-      const selector = input.data.slice(0, 10).toLowerCase(),
-        risks = [
-          ...(BigInt(input.value) > 0n ? ["Transfers native ETH"] : []),
-          ...(["0x095ea7b3", "0xa22cb465"].includes(selector)
-            ? ["Grants token spending permission"]
-            : []),
-          ...(input.data.length > 2
-            ? ["Calls contract code; review target and calldata"]
-            : []),
-        ];
+      let transactionReview;
+      try {
+        transactionReview = reviewTransaction(call);
+      } catch {
+        throw new ApiError(
+          400,
+          "malformed_call",
+          "A recognized transaction selector has invalid arguments.",
+        );
+      }
       return offices.propose(a, "safe_draft", [call], {
         clerkId,
-        explanation: input.explanation,
+        requesterExplanation: input.explanation,
+        transactionReview,
         simulation,
-        risks,
+        risks: transactionReview.risks,
         requiresHumanSignatures: true,
       });
     },

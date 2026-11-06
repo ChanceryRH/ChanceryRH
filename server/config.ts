@@ -30,9 +30,17 @@ export function config(env: NodeJS.ProcessEnv = process.env) {
   if (env.COOKIE_SAME_SITE === "none" && !production)
     throw new Error("Cross-site cookies require production HTTPS.");
   const released = releasedUpdates(env.RELEASED_UPDATES);
-  const tokenAddress = address("CHNC_TOKEN_ADDRESS");
+  const currentToken = address("CCRY_TOKEN_ADDRESS"),
+    legacyToken = address("CHNC_TOKEN_ADDRESS");
+  if (
+    currentToken &&
+    legacyToken &&
+    currentToken.toLowerCase() !== legacyToken.toLowerCase()
+  )
+    throw new Error("Token address settings disagree.");
+  const tokenAddress = currentToken || legacyToken;
   if (released.has("token_benefits") && !tokenAddress)
-    throw new Error("Token benefits require CHNC_TOKEN_ADDRESS.");
+    throw new Error("Token benefits require CCRY_TOKEN_ADDRESS.");
   const providerFeeBps = Number(env.PROVIDER_FEE_BPS ?? 550);
   if (
     !Number.isInteger(providerFeeBps) ||

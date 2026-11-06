@@ -2,7 +2,7 @@ import { generateKeyPairSync, randomBytes } from "node:crypto";
 import postgres from "postgres";
 import supertest from "supertest";
 import { privateKeyToAccount } from "viem/accounts";
-import { verifyMessage, type Hex } from "viem";
+import { verifyMessage, keccak256, toBytes, type Hex } from "viem";
 import { config } from "../server/config.ts";
 import { openDatabase } from "../server/db.ts";
 import { createApp } from "../server/app.ts";
@@ -105,8 +105,16 @@ export async function fixture(released = "", databaseUrl = "pglite://memory") {
         refundReceiver: ZERO_ADDRESS,
         nonce: "0",
       },
-      safeTxHash: ZERO,
+      safeTxHash: keccak256(toBytes(JSON.stringify({ address, calls }))),
       typedData: {},
+    }),
+    findSafeExecution: async () => null,
+    tokenHoldingWindow: async () => ({
+      balance: 25000000n * 10n ** 18n,
+      eligibleBalance: 25000000n * 10n ** 18n,
+      decimals: 18,
+      windowHours: 24,
+      block: "100",
     }),
     tokenBalance: async () => ({
       balance: 25000000n * 10n ** 18n,

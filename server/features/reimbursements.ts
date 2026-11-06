@@ -193,9 +193,7 @@ export function createReimbursements(
     const show = (rows: any[]) => rows.map((r) => view(a, r, names));
     const total = (rows: any[]) =>
       usdg(rows.reduce((t, r) => t + BigInt(String(r.amount_units)), 0n));
-    const queue = others
-      .filter((r: any) => r.status === "submitted")
-      .reverse();
+    const queue = others.filter((r: any) => r.status === "submitted").reverse();
     const awaiting = others.filter((r: any) => r.status === "approved");
     const balance = a.snapshot?.safeBalanceUnits ?? 0n;
     return {
@@ -247,7 +245,12 @@ export function createReimbursements(
       day = spentOn(input.spentOn),
       receipt = input.receipt ? receiptImage(input.receipt) : null,
       guard = checkGuards(input.vendor, input.note);
-    assert(!guard, 400, "secret_detected", guard?.message || "Secret detected.");
+    assert(
+      !guard,
+      400,
+      "secret_detected",
+      guard?.message || "Secret detected.",
+    );
     assert(
       units <= snapshot.safeBalanceUnits,
       422,
@@ -347,9 +350,10 @@ export function createReimbursements(
       );
     };
     const rows = await db.office(a.office.id, (q) =>
-      q.query(`SELECT * FROM reimbursements WHERE ${IN_IDS} ORDER BY created_at`, [
-        ids(wanted),
-      ]),
+      q.query(
+        `SELECT * FROM reimbursements WHERE ${IN_IDS} ORDER BY created_at`,
+        [ids(wanted)],
+      ),
     );
     check(rows);
     const seated = await db.office(a.office.id, (q) =>
@@ -384,9 +388,10 @@ export function createReimbursements(
     // Claim the rows before proposing so two reviewers cannot pay the same request twice.
     await db.office(a.office.id, async (q) => {
       check(
-        await q.query(`SELECT * FROM reimbursements WHERE ${IN_IDS} FOR UPDATE`, [
-          ids(wanted),
-        ]),
+        await q.query(
+          `SELECT * FROM reimbursements WHERE ${IN_IDS} FOR UPDATE`,
+          [ids(wanted)],
+        ),
       );
       const [{ held }] = await q.query(
         "SELECT COALESCE(SUM(amount_units),0)::text AS held FROM reimbursements WHERE status='approved'",
@@ -477,11 +482,84 @@ export function createReimbursements(
     );
     return { id, status: "withdrawn" };
   }
-  return { list, submit, receipt, approve, reject, withdraw };
+  async function returnToReview(a: Access, id: string) {
+    officer(a);
+    const [request] = await db.office(a.office.id, (q) =>
+      q.query("SELECT * FROM reimbursements WHERE id=$1", [id]),
+    );
+    assert(
+      request?.status === "approved" && request.proposal_id,
+      409,
+      "reimbursement_reviewed",
+      "Only an approved payout with a stale proposal can return to review.",
+    );
+    const [proposal] = await db.office(a.office.id, (q) =>
+      q.query("SELECT * FROM office_proposals WHERE id=$1", [
+        request.proposal_id,
+      ]),
+    );
+    assert(
+      proposal?.kind === "reimbursement" && proposal.status === "pending",
+      409,
+      "proposal_unavailable",
+      "This payout requires reconciliation by a Safe owner.",
+    );
+    assert(
+      await chain.safeNonceConsumed(a.office.safe, proposal.nonce),
+      409,
+      "proposal_still_executable",
+      "This proposal can still execute. Its Safe nonce must be consumed before its payout can return to review.",
+    );
+    assert(
+      !(await chain.findSafeExecution(
+        a.office.safe,
+        proposal.safe_tx_hash,
+        proposal.created_block,
+      )),
+      409,
+      "payout_already_executed",
+      "This payout already executed. Ask a Safe owner to confirm it in Approvals.",
+    );
+    return db.office(a.office.id, async (q) => {
+      await q.query("SELECT * FROM office_locks FOR UPDATE");
+      const [current] = await q.query(
+        "SELECT status FROM office_proposals WHERE id=$1 FOR UPDATE",
+        [proposal.id],
+      );
+      assert(
+        current?.status === "pending",
+        409,
+        "proposal_unavailable",
+        "Proposal changed; reload the payout.",
+      );
+      const rows = await q.query(
+        "UPDATE reimbursements SET status='submitted',proposal_id=NULL,reviewed_by=NULL,reviewed_at=NULL WHERE proposal_id=$1 AND status='approved' RETURNING id",
+        [proposal.id],
+      );
+      assert(
+        rows.length > 0,
+        409,
+        "reimbursement_reviewed",
+        "These payouts have already changed.",
+      );
+      await q.query(
+        "UPDATE office_proposals SET status='superseded' WHERE id=$1",
+        [proposal.id],
+      );
+      return { status: "submitted", returned: rows.map((r) => r.id) };
+    });
+  }
+  return { list, submit, receipt, approve, reject, withdraw, returnToReview };
 }
 export function register(ctx: FeatureContext) {
   const r = createReimbursements(ctx),
     gate = "reimbursements" as const;
+  ctx.route(
+    "post",
+    "/reimbursements/:id/return-to-review",
+    (a, req) => r.returnToReview(a, ctx.param(req, "id")),
+    gate,
+  );
   ctx.route("get", "/reimbursements", (a) => r.list(a), gate);
   ctx.route("post", "/reimbursements", (a, req) => r.submit(a, req.body), gate);
   ctx.route(

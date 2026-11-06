@@ -165,7 +165,10 @@ test("Reimbursements: guests are refused, members need a verified wallet and val
     rb.submit(access.member, request({ category: "Gifts" })),
   );
   await assert.rejects(
-    rb.submit(access.member, request({ receipt: "data:image/png;base64,AAAA" })),
+    rb.submit(
+      access.member,
+      request({ receipt: "data:image/png;base64,AAAA" }),
+    ),
     { code: "receipt_invalid" },
   );
   await assert.rejects(
@@ -190,7 +193,9 @@ test("Reimbursements: guests are refused, members need a verified wallet and val
   assert.equal(mine.mine[0].vendor, "Sample Vendor");
   assert.equal(mine.mine[0].status, "submitted");
   // Another member cannot open someone else's receipt.
-  const other = await s.r.login(privateKeyToAccount(`0x${"66".repeat(32)}`) as any);
+  const other = await s.r.login(
+    privateKeyToAccount(`0x${"66".repeat(32)}`) as any,
+  );
   const otherAccess = await seat(s.r, s.o.id, other.account, "member");
   await assert.rejects(rb.receipt(otherAccess, created.id), {
     code: "reimbursement_not_found",
@@ -216,10 +221,9 @@ test("Reimbursements: members cannot approve; approval proposes a simulated USDG
     code: "reimbursement_not_found",
   });
   // Officers may still not propose other Safe changes.
-  await assert.rejects(
-    s.r.offices.propose(access.officer, "policy", [], {}),
-    { code: "principal_required" },
-  );
+  await assert.rejects(s.r.offices.propose(access.officer, "policy", [], {}), {
+    code: "principal_required",
+  });
   const result = await rb.approve(access.officer, {
     ids: [first.id, second.id],
   });
@@ -304,7 +308,10 @@ test("Reimbursements: reject with a reason, withdraw, and paid on Safe confirmat
     (await rb.list(access.member)).mine.map((m) => [m.id, m]),
   );
   assert.equal(mine.get(rejected.id)!.status, "rejected");
-  assert.equal(mine.get(rejected.id)!.reason, "Duplicate of an earlier request.");
+  assert.equal(
+    mine.get(rejected.id)!.reason,
+    "Duplicate of an earlier request.",
+  );
   assert.equal(mine.get(withdrawn.id)!.status, "withdrawn");
   assert.equal(mine.get(paid.id)!.status, "paid");
   assert.equal(mine.get(paid.id)!.transactionHash, txHash);
@@ -358,4 +365,40 @@ test("Reimbursements: end to end on the simulated chain (sign, execute, confirm)
   const [row] = (await rb.list(a)).mine;
   assert.equal(row.status, "paid");
   assert.equal(row.transactionHash, confirmed.txHash);
+});
+
+test("Reimbursements: a consumed nonce and proven nonpayment return the whole stale batch to review", async (t) => {
+  const { r, o, member, access, reimbursements } = await setup();
+  t.after(() => r.db.close());
+  const item = await reimbursements.submit(access.member, request());
+  const approved = await reimbursements.approve(access.officer, {
+    ids: [item.id],
+  });
+  r.chain.safeNonceConsumed = async () => false;
+  r.chain.findSafeExecution = async () => null;
+  await assert.rejects(reimbursements.returnToReview(access.officer, item.id), {
+    code: "proposal_still_executable",
+  });
+  r.chain.safeNonceConsumed = async () => true;
+  r.chain.findSafeExecution = async () => `0x${"01".repeat(32)}`;
+  await assert.rejects(reimbursements.returnToReview(access.officer, item.id), {
+    code: "payout_already_executed",
+  });
+  r.chain.findSafeExecution = async () => {
+    throw Error("history unavailable");
+  };
+  await assert.rejects(
+    reimbursements.returnToReview(access.officer, item.id),
+    /history unavailable/,
+  );
+  r.chain.findSafeExecution = async () => null;
+  const result = await reimbursements.returnToReview(access.officer, item.id);
+  assert.deepEqual(result.returned, [item.id]);
+  const [row] = await r.db.office(o.id, (q) =>
+    q.query("SELECT * FROM reimbursements WHERE id=$1", [item.id]),
+  );
+  assert.equal(row.status, "submitted");
+  assert.equal(row.proposal_id, null);
+  const p = await r.offices.proposal(access.principal, approved.proposal.id);
+  assert.equal(p.status, "superseded");
 });

@@ -222,13 +222,13 @@ export function createClerks(
       const approval = await db.office(a.office.id, async (q) => {
         await q.query("SELECT * FROM office_locks FOR UPDATE");
         const [existing] = await q.query(
-          "SELECT id FROM approvals WHERE clerk_id=$1 AND request_hash=$2 AND status IN ('pending','approved') AND consumed_at IS NULL AND expires_at>now()",
-          [id, requestHash(input)],
+          "SELECT id,status FROM approvals WHERE clerk_id=$1 AND request_hash=$2 AND requested_by=$3 AND max_cost_pico>=$4 AND status IN ('pending','approved') AND consumed_at IS NULL AND expires_at>now()",
+          [id, requestHash(input), a.account.id, maximum.toString()],
         );
-        if (existing) return existing.id;
+        if (existing) return existing;
         const aid = uid("approval_");
         await q.query(
-          "INSERT INTO approvals(id,office_id,clerk_id,request_hash,request_enc,max_cost_pico,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7)",
+          "INSERT INTO approvals(id,office_id,clerk_id,request_hash,request_enc,max_cost_pico,expires_at,requested_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
           [
             aid,
             a.office.id,
@@ -237,15 +237,18 @@ export function createClerks(
             crypto.seal(a.office.id, `approval:${aid}`, input),
             maximum.toString(),
             new Date(Date.now() + 3600000).toISOString(),
+            a.account.id,
           ],
         );
-        return aid;
+        return { id: aid, status: "pending" };
       });
       return {
         chat: input,
         quote,
         decision: "approval_required",
-        approvalId: approval,
+        approvalId: approval.id,
+        approvalStatus: approval.status,
+        requestedBy: a.account.id,
       };
     }
     return { chat: input, quote, decision: "allow" };
@@ -282,7 +285,7 @@ export function createClerks(
           d.decision !== "approval_required" || input.approvalId,
           409,
           "approval_required",
-          "An Officer must approve this exact request first.",
+          "Another Safe owner must approve this exact request first.",
         );
       },
     };
@@ -377,21 +380,38 @@ export function createClerks(
       );
     },
     async decide(a: Access, id: string, body: unknown) {
-      officer(a);
-      const input = z.strictObject({ approve: z.boolean() }).parse(body);
-      const [row] = await db.office(a.office.id, (q) =>
-        q.query(
-          "UPDATE approvals SET status=$1,decided_by=$2 WHERE id=$3 AND status='pending' AND expires_at>now() RETURNING id,status",
-          [input.approve ? "approved" : "denied", a.account.id, id],
-        ),
-      );
       assert(
-        row,
-        409,
-        "approval_unavailable",
-        "Approval expired or was already decided.",
+        a.role === "principal",
+        403,
+        "principal_required",
+        "A Safe owner must decide Clerk approvals.",
       );
-      return row;
+      const input = z.strictObject({ approve: z.boolean() }).parse(body);
+      return db.office(a.office.id, async (q) => {
+        const [approval] = await q.query(
+          "SELECT * FROM approvals WHERE id=$1 FOR UPDATE",
+          [id],
+        );
+        assert(
+          approval &&
+            approval.status === "pending" &&
+            new Date(approval.expires_at).getTime() > Date.now(),
+          409,
+          "approval_unavailable",
+          "Approval expired or was already decided.",
+        );
+        assert(
+          approval.requested_by && approval.requested_by !== a.account.id,
+          403,
+          "self_approval",
+          "Another Safe owner must decide this request.",
+        );
+        const [row] = await q.query(
+          "UPDATE approvals SET status=$1,decided_by=$2 WHERE id=$3 RETURNING id,status",
+          [input.approve ? "approved" : "denied", a.account.id, id],
+        );
+        return row;
+      });
     },
   };
 }

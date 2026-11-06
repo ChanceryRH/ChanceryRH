@@ -238,7 +238,7 @@ export function Updates() {
       ) : (
         <>
           <PageTitle title="Updates">
-            Additions to the Office. Your deployment decides which are on.
+            Explore what’s available for your Office and what’s coming next.
           </PageTitle>
           <div className="updates-grid">
             {config.updates.map((u) => {
@@ -424,16 +424,23 @@ function Benefits() {
         eyebrow="A LITTLE MORE FOR YOUR OFFICE"
         title="Benefits that do something."
       >
-        Live token holdings in your Safe determine your Office’s tier.
+        Your minimum CCRY holding over a rolling 24-hour window determines your
+        Office’s tier.
       </PageTitle>
       <Feedback action={action} />
       {benefits && (
         <>
+          {benefits.status !== "verified" && (
+            <p className="notice">
+              Holding history is unavailable. No discount is applied until
+              eligibility can be verified.
+            </p>
+          )}
           <div className="stats-grid">
             <Panel>
               <span className="eyebrow">YOUR TIER</span>
               <strong>{benefits.tier}</strong>
-              <p>Based on current Safe holdings</p>
+              <p>Based on the 24-hour minimum</p>
             </Panel>
             <Panel>
               <span className="eyebrow">FEE DISCOUNT</span>
@@ -445,7 +452,14 @@ function Benefits() {
               <strong className="token-balance">
                 {formatUnits(BigInt(benefits.balance), benefits.decimals)}
               </strong>
-              <p>Provider inference costs remain unchanged</p>
+              <p>
+                Eligible holding:{" "}
+                {formatUnits(
+                  BigInt(benefits.eligibleBalance),
+                  benefits.decimals,
+                )}{" "}
+                CCRY
+              </p>
             </Panel>
           </div>
           {benefits.roadmapVote && office.role === "principal" && (

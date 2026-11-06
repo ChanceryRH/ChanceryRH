@@ -52,17 +52,42 @@ export function createLedger(
     cap: BigInt(a.seat.monthly_cap_pico),
     delegateActor: ZERO,
   });
+  async function benefitEligibility(a: Access) {
+    try {
+      const holding = await chain.tokenHoldingWindow(a.office.safe),
+        whole = holding.eligibleBalance / 10n ** BigInt(holding.decimals);
+      const tier =
+        whole >= 25000000n
+          ? 3
+          : whole >= 5000000n
+            ? 2
+            : whole >= 1000000n
+              ? 1
+              : 0;
+      return {
+        ...holding,
+        balance: holding.balance.toString(),
+        eligibleBalance: holding.eligibleBalance.toString(),
+        tier,
+        discountPercent: [0, 10, 20, 30][tier],
+        status: "verified",
+      };
+    } catch {
+      return {
+        balance: "0",
+        eligibleBalance: "0",
+        decimals: 18,
+        windowHours: 24,
+        block: null,
+        tier: 0,
+        discountPercent: 0,
+        status: "history_unavailable",
+      };
+    }
+  }
   async function discount(a: Access) {
     if (!cfg.released.has("token_benefits")) return 0;
-    const holding = await chain.tokenBalance(a.office.safe),
-      whole = holding.balance / 10n ** BigInt(holding.decimals);
-    return whole >= 25000000n
-      ? 3000
-      : whole >= 5000000n
-        ? 2000
-        : whole >= 1000000n
-          ? 1000
-          : 0;
+    return (await benefitEligibility(a)).discountPercent * 100;
   }
   function validate(a: Access, body: unknown) {
     offices.work(a);
@@ -221,6 +246,15 @@ export function createLedger(
       "previous_period_unsettled",
       "The previous allowance period requires reconciliation before new spending.",
     );
+    const [aged] = await q.query(
+      "SELECT count(*)::int AS count FROM receipts r LEFT JOIN settlements s ON s.id=r.settlement_id WHERE r.status='final' AND r.charged_pico>0 AND r.created_at<now()-interval '2 hours' AND (s.status IS NULL OR s.status<>'confirmed')",
+    );
+    assert(
+      !aged.count,
+      402,
+      "collection_overdue",
+      "Outstanding charges must settle before more paid work can start. Check the Safe balance and allowance.",
+    );
     const rows = await q.query(
       "SELECT actor_id,actor_kind,coalesce(sum(reserved_pico),0)::text AS amount FROM requests WHERE status IN ('inflight','uncertain') GROUP BY actor_id,actor_kind",
     );
@@ -239,6 +273,12 @@ export function createLedger(
       )
         delegateHeld += n;
     }
+    assert(
+      officeHeld + amount <= 25_000_000_000_000n,
+      402,
+      "unsettled_limit",
+      "This Office has reached its 25 USDG outstanding-usage limit. Wait for settlement before starting more paid work.",
+    );
     const [used] = await q.query(
       "SELECT coalesce(sum(CASE WHEN status IN ('inflight','uncertain') THEN reserved_pico ELSE coalesce(charged_pico,0) END),0)::text AS amount FROM requests WHERE actor_id=$1 AND period_start=$2",
       [actor.id, s.periodStart],
@@ -404,8 +444,14 @@ export function createLedger(
       await budget(q, snapshot, actor, maximum);
       if (actor.approvalId) {
         const [approval] = await q.query(
-          "UPDATE approvals SET consumed_at=now() WHERE id=$1 AND clerk_id=$2 AND request_hash=$3 AND max_cost_pico>=$4 AND status='approved' AND consumed_at IS NULL AND expires_at>now() RETURNING id",
-          [actor.approvalId, actor.id, digest, maximum.toString()],
+          "UPDATE approvals SET consumed_at=now() WHERE id=$1 AND clerk_id=$2 AND request_hash=$3 AND max_cost_pico>=$4 AND status='approved' AND requested_by=$5 AND decided_by IS NOT NULL AND decided_by<>requested_by AND consumed_at IS NULL AND expires_at>now() RETURNING id",
+          [
+            actor.approvalId,
+            actor.id,
+            digest,
+            maximum.toString(),
+            a.account.id,
+          ],
         );
         assert(
           approval,
@@ -739,6 +785,7 @@ export function createLedger(
     statement,
     proof,
     discount,
+    benefitEligibility,
     actorFor,
     budget,
     validate,

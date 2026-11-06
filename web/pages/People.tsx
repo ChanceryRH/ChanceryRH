@@ -11,8 +11,25 @@ import {
 } from "lucide-react";
 import { useOffice } from "../App";
 import { api, short, money, date, type Receipt } from "../api";
-import { Amount, Monogram, Pill, Progress, SidePanel, SideItem, SideSection } from "../shell";
-import { charged, modelLabel, sentence, monthLabel, payload, receiptState, sum, thisMonth } from "../data";
+import {
+  Amount,
+  Monogram,
+  Pill,
+  Progress,
+  SidePanel,
+  SideItem,
+  SideSection,
+} from "../shell";
+import {
+  charged,
+  modelLabel,
+  sentence,
+  monthLabel,
+  payload,
+  receiptState,
+  sum,
+  thisMonth,
+} from "../data";
 import {
   Button,
   Empty,
@@ -24,7 +41,12 @@ import {
   useAction,
 } from "../ui";
 const roleName = (role: string) =>
-  ({ principal: "Owner", officer: "Officer", member: "Member", guest: "Guest" })[role] || role;
+  ({
+    principal: "Owner",
+    officer: "Officer",
+    member: "Member",
+    guest: "Guest",
+  })[role] || role;
 export function People() {
   const { office, onProposal, navigate, models } = useOffice(),
     action = useAction(),
@@ -53,7 +75,11 @@ export function People() {
         .catch(() => {});
   }, [office.id, office.status]);
   useEffect(() => {
-    if (location.hash.includes("invite") && manager && office.status === "active") {
+    if (
+      location.hash.includes("invite") &&
+      manager &&
+      office.status === "active"
+    ) {
       setInvite(null);
       setInviteOpen(true);
       history.replaceState(null, "", "#/people");
@@ -173,7 +199,10 @@ export function People() {
       ) : (
         <div className="detail-page">
           <header className="profile-head">
-            <Monogram value={seat.credential?.slice(7) || seat.id} tone="large" />
+            <Monogram
+              value={seat.credential?.slice(7) || seat.id}
+              tone="large"
+            />
             <div>
               <h1>{label(seat)}</h1>
               <p>
@@ -197,33 +226,35 @@ export function People() {
               {sentence(seat.status)}
             </Pill>
             <span className="grow" />
-            {principal && office.status === "active" && seat.status !== "revoked" && (
-              <>
-                {seat.status === "pending" && (
-                  <Button
-                    disabled={action.busy}
-                    onClick={() => action.run(() => propose({ id: seat.id }))}
-                  >
-                    <UserCheck size={14} />
-                    Propose approval
-                  </Button>
-                )}
-                {seat.role !== "principal" && (
-                  <Button
-                    kind="secondary"
-                    onClick={() =>
-                      setEditing({
-                        ...seat,
-                        newRole: seat.role,
-                        newCap: String(Number(seat.monthly_cap_pico) / 1e12),
-                      })
-                    }
-                  >
-                    Manage seat
-                  </Button>
-                )}
-              </>
-            )}
+            {principal &&
+              office.status === "active" &&
+              seat.status !== "revoked" && (
+                <>
+                  {seat.status === "pending" && (
+                    <Button
+                      disabled={action.busy}
+                      onClick={() => action.run(() => propose({ id: seat.id }))}
+                    >
+                      <UserCheck size={14} />
+                      Approve this seat
+                    </Button>
+                  )}
+                  {seat.role !== "principal" && (
+                    <Button
+                      kind="secondary"
+                      onClick={() =>
+                        setEditing({
+                          ...seat,
+                          newRole: seat.role,
+                          newCap: String(Number(seat.monthly_cap_pico) / 1e12),
+                        })
+                      }
+                    >
+                      Manage seat
+                    </Button>
+                  )}
+                </>
+              )}
           </header>
           <Panel className="card">
             <div className="card-head">
@@ -279,7 +310,9 @@ export function People() {
                 </tbody>
               </table>
             ) : (
-              <p className="card-empty">No receipts for this seat this month.</p>
+              <p className="card-empty">
+                No receipts for this seat this month.
+              </p>
             )}
           </Panel>
           <div className="safe-strip">

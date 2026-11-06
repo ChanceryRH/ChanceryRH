@@ -40,7 +40,18 @@ export function createJobs(runtime: Runtime) {
       "SELECT * FROM transaction_outbox WHERE kind=$1 AND reference=$2",
       [kind, reference],
     );
-    if (!entry) {
+    const retry = entry?.status === "failed" && kind === "settlement";
+    if (retry) {
+      if (
+        entry.attempt_count >= 5 ||
+        Date.now() - new Date(entry.confirmed_at).getTime() <
+          Math.min(3600000, 60000 * 2 ** entry.attempt_count)
+      )
+        return;
+      if (!(await chain.failedSubmissionFinalized(entry.transaction_hash)))
+        return;
+    }
+    if (!entry || retry) {
       // Never allocate another nonce while a previous signed transaction is unresolved.
       const [pending] = await db.query(
         "SELECT id FROM transaction_outbox WHERE status='prepared' LIMIT 1",
@@ -61,6 +72,35 @@ export function createJobs(runtime: Runtime) {
           "SELECT id FROM transaction_outbox WHERE status='prepared' LIMIT 1",
         );
         if (inflight) return null;
+        if (retry) {
+          const [current] = await q.query(
+            "SELECT * FROM transaction_outbox WHERE id=$1 FOR UPDATE",
+            [entry.id],
+          );
+          if (
+            current.status !== "failed" ||
+            current.transaction_hash !== entry.transaction_hash
+          )
+            return null;
+          await q.query(
+            "INSERT INTO transaction_attempts(outbox_id,transaction_hash,raw_enc,status,confirmed_at) VALUES($1,$2,$3,'failed',$4) ON CONFLICT(transaction_hash) DO NOTHING",
+            [
+              current.id,
+              current.transaction_hash,
+              current.raw_enc,
+              current.confirmed_at,
+            ],
+          );
+          const [saved] = await q.query(
+            "UPDATE transaction_outbox SET transaction_hash=$1,raw_enc=$2,status='prepared',confirmed_at=NULL,error_code=NULL,attempt_count=attempt_count+1 WHERE id=$3 RETURNING *",
+            [
+              signed.hash,
+              crypto.seal(officeId, `transaction:${current.id}`, signed.raw),
+              current.id,
+            ],
+          );
+          return saved;
+        }
         const [saved] = await q.query(
           "INSERT INTO transaction_outbox(id,office_id,kind,reference,transaction_hash,raw_enc) VALUES($1,$2,$3,$4,$5,$6) RETURNING *",
           [
@@ -113,8 +153,21 @@ export function createJobs(runtime: Runtime) {
       )
         continue;
       const status = receipt.status === "success" ? "confirmed" : "failed";
-      // Update the tenant record first. A crash can replay this harmlessly; it cannot hide an unpaid batch.
-      await db.office(entry.office_id, async (q) => {
+      // Fence delayed observations by attempt, and commit tenant/outbox state atomically.
+      await db.transaction(async (q) => {
+        const [current] = await q.query(
+          "SELECT status,transaction_hash FROM transaction_outbox WHERE id=$1 FOR UPDATE",
+          [entry.id],
+        );
+        if (
+          current?.status !== "prepared" ||
+          current.transaction_hash !== entry.transaction_hash
+        )
+          return;
+        await q.query("SELECT set_config('chancery.office_id', $1, true)", [
+          entry.office_id,
+        ]);
+        await q.query("SET LOCAL ROLE chancery_office");
         if (entry.kind === "settlement")
           await q.query(
             "UPDATE settlements SET status=$1,tx_hash=$2,confirmed_at=CASE WHEN $1='confirmed' THEN now() ELSE NULL END WHERE id=$3",
@@ -130,11 +183,16 @@ export function createJobs(runtime: Runtime) {
             entry.transaction_hash,
             entry.reference,
           ]);
+        await q.query("SET LOCAL ROLE chancery_service");
+        await q.query(
+          "UPDATE transaction_outbox SET status=$1,confirmed_at=now(),error_code=$2 WHERE id=$3",
+          [
+            status,
+            status === "failed" ? "transaction_reverted" : null,
+            entry.id,
+          ],
+        );
       });
-      await db.query(
-        "UPDATE transaction_outbox SET status=$1,confirmed_at=now(),error_code=$2 WHERE id=$3",
-        [status, status === "failed" ? "transaction_reverted" : null, entry.id],
-      );
     }
   }
   async function settle(office: any) {
@@ -145,9 +203,15 @@ export function createJobs(runtime: Runtime) {
     if (!snapshot.active || !snapshot.moduleEnabled) return;
     const batches = await db.office(office.id, async (q) => {
       await q.query("SELECT * FROM office_locks FOR UPDATE");
+      const [outstanding] = await q.query(
+        "SELECT coalesce(sum(charged_pico),0)::text AS total FROM receipts WHERE status='final' AND charged_pico>0 AND settlement_id IS NULL",
+      );
       const rows = await q.query(
         "SELECT * FROM receipts WHERE status='final' AND charged_pico>0 AND settlement_id IS NULL AND (created_at<$1 OR $2) ORDER BY created_at,id LIMIT 2000",
-        [new Date(day * 86400000).toISOString(), nearReset],
+        [
+          new Date(now - 3600000).toISOString(),
+          nearReset || BigInt(outstanding.total) >= 10_000_000_000_000n,
+        ],
       );
       const groups = new Map<string, any[]>();
       for (const row of rows) {
@@ -197,7 +261,7 @@ export function createJobs(runtime: Runtime) {
           ]);
       }
       return q.query(
-        "SELECT * FROM settlements WHERE status='prepared' ORDER BY created_at LIMIT 20",
+        "SELECT * FROM settlements WHERE status IN ('prepared','failed') ORDER BY created_at LIMIT 20",
       );
     });
     for (const batch of batches) {

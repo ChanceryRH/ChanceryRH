@@ -32,6 +32,7 @@ import type { Config } from "./config.ts";
 import { verifyRegistryRuntime } from "./bytecode.ts";
 import { ApiError, assert } from "./errors.ts";
 import { expiredCollectionProof } from "./collection.ts";
+import { tokenHoldingWindow } from "./token-holdings.ts";
 export type Call = { to: Address; data: Hex; value?: string };
 export type SafeInfo = {
   address: Address;
@@ -468,17 +469,59 @@ export function createChain(cfg: Config) {
     ) {
       return encodeSafeExecution(tx, signatures);
     },
+    async failedSubmissionFinalized(hash: Hex) {
+      const receipt = await client.getTransactionReceipt({ hash });
+      if (receipt.status !== "reverted") return false;
+      const finalized = await client.getBlock({ blockTag: "finalized" });
+      if (finalized.number === null || receipt.blockNumber > finalized.number)
+        return false;
+      const canonical = await client.getBlock({
+        blockNumber: receipt.blockNumber,
+      });
+      return canonical.hash === receipt.blockHash;
+    },
+    async safeNonceConsumed(safeAddress: Address, nonce: string) {
+      const block = await client.getBlock({ blockTag: "finalized" });
+      assert(
+        block.number !== null,
+        503,
+        "finality_unavailable",
+        "Finalized Safe state is unavailable.",
+      );
+      return (
+        (await client.readContract({
+          address: safeAddress,
+          abi: safeAbi,
+          functionName: "nonce",
+          blockNumber: block.number,
+        })) > BigInt(nonce)
+      );
+    },
+    async findSafeExecution(
+      safeAddress: Address,
+      safeTxHash: Hex,
+      createdBlock: string | null,
+    ) {
+      // Missing history or an RPC range error must fail closed; never treat it as proof of nonpayment.
+      const logs = await client.getLogs({
+        address: safeAddress,
+        event: safeAbi.find(
+          (e) => e.type === "event" && e.name === "ExecutionSuccess",
+        ) as any,
+        args: { txHash: safeTxHash },
+        fromBlock: createdBlock ? BigInt(createdBlock) : 0n,
+        toBlock: "latest",
+        strict: true,
+      });
+      return logs.find((l) => !l.removed)?.transactionHash || null;
+    },
     async confirmedSafeTransaction(
       txHash: Hex,
       safeAddress: Address,
       safeTxHash: Hex,
     ) {
       const receipt = await client.getTransactionReceipt({ hash: txHash });
-      if (
-        receipt.status !== "success" ||
-        receipt.to?.toLowerCase() !== safeAddress.toLowerCase()
-      )
-        return false;
+      if (receipt.status !== "success") return false;
       if (
         (await client.getBlockNumber({ cacheTime: 0 })) <
         receipt.blockNumber + 1n
@@ -531,6 +574,15 @@ export function createChain(cfg: Config) {
         };
       }
     },
+    async tokenHoldingWindow(safeAddress: Address) {
+      assert(
+        cfg.tokenAddress,
+        503,
+        "token_unconfigured",
+        "The token contract has not been configured.",
+      );
+      return tokenHoldingWindow(client, cfg.tokenAddress, safeAddress);
+    },
     async tokenBalance(safeAddress: Address) {
       assert(
         cfg.tokenAddress,
@@ -567,8 +619,18 @@ export function createChain(cfg: Config) {
         args: [batchId],
       });
     },
-    async expiredCollectionProof(officeId: Hex, periodStart: number, batch?: {id: Hex; actorId: Hex}) {
-      return expiredCollectionProof(client, registry(), officeId, periodStart, batch);
+    async expiredCollectionProof(
+      officeId: Hex,
+      periodStart: number,
+      batch?: { id: Hex; actorId: Hex },
+    ) {
+      return expiredCollectionProof(
+        client,
+        registry(),
+        officeId,
+        periodStart,
+        batch,
+      );
     },
     async submit(to: Address, data: Hex) {
       assert(

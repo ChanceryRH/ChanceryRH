@@ -119,7 +119,23 @@ test("Clerks: approval is content-bound, single-use, and cannot bypass hard caps
     r.clerks.run(o.access, id, { id: uid("req_"), quoteId: p.quote.id, chat }),
     { code: "approval_required" },
   );
-  await r.clerks.decide(o.access, p.approvalId!, { approve: true });
+  const reviewer = await r.login(MEMBER);
+  o.snapshot.owners.push(MEMBER.address.toLowerCase() as any);
+  await assert.rejects(
+    r.clerks.decide(o.access, p.approvalId!, { approve: true }),
+    { code: "self_approval" },
+  );
+  await assert.rejects(
+    r.clerks.decide({ ...o.access, role: "officer" }, p.approvalId!, {
+      approve: true,
+    }),
+    { code: "principal_required" },
+  );
+  await r.clerks.decide(
+    await r.offices.access(reviewer.account, o.id),
+    p.approvalId!,
+    { approve: true },
+  );
   const first = await r.clerks.run(o.access, id, {
     id: uid("req_"),
     quoteId: p.quote.id,

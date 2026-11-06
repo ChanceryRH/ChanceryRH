@@ -19,12 +19,20 @@ import {
   useAction,
 } from "../ui";
 import { sentence } from "../data";
-import { Dots, Monogram, Pill, SidePanel, SideItem, SideSection } from "../shell";
+import {
+  Dots,
+  Monogram,
+  Pill,
+  SidePanel,
+  SideItem,
+  SideSection,
+} from "../shell";
 const titles: Record<string, string> = {
   open: "Open Office & set allowance",
   seats: "Update Office seats",
   policy: "Update Office rules",
   cap: "Change Office budget",
+  allowance_sync: "Restore allowance period",
   close: "Close Office permanently",
   clerk: "Authorize a Clerk",
   safe_draft: "Review transaction draft",
@@ -129,8 +137,8 @@ export function Proposals() {
       <>
         <SidePanel title="Approvals" />
         <Empty title="Your Safe owners handle these." icon={<ShieldCheck />}>
-          Treasury changes require the Safe’s owner signatures. Officers can
-          review Clerk requests in Clerks.
+          Treasury changes require the Safe’s owner signatures. Clerk requests
+          above their approval threshold need a different Safe owner.
         </Empty>
       </>
     );
@@ -146,6 +154,11 @@ export function Proposals() {
   const params = Object.entries(detail?.payload || {}).filter(
     ([k, v]) =>
       k !== "calls" &&
+      k !== "transactionReview" &&
+      !(
+        detail?.kind === "allowance_sync" &&
+        ["actorId", "periodStart", "allowanceUnits"].includes(k)
+      ) &&
       !(detail?.kind === "reimbursement" && k === "payments") &&
       v !== null &&
       v !== undefined &&
@@ -284,6 +297,37 @@ export function Proposals() {
                 <dt>Action</dt>
                 <dd>{titles[detail.kind] || detail.kind}</dd>
               </div>
+              {detail.kind === "allowance_sync" && (
+                <>
+                  <div>
+                    <dt>Allowance</dt>
+                    <dd>
+                      {(
+                        Number(detail.payload.allowanceUnits) / 1e6
+                      ).toLocaleString(undefined, {
+                        maximumFractionDigits: 6,
+                      })}{" "}
+                      USDG per 30 days
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Cycle begins</dt>
+                    <dd>
+                      {date(
+                        new Date(
+                          detail.payload.periodStart * 60000,
+                        ).toISOString(),
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Purpose</dt>
+                    <dd>
+                      Align the Safe allowance with the Office billing cycle.
+                    </dd>
+                  </div>
+                </>
+              )}
               {params.map(([k, v]) => (
                 <div key={k}>
                   <dt>{humanize(k)}</dt>
@@ -360,7 +404,9 @@ export function Proposals() {
                       <td className="who">
                         <Monogram value={o} />
                         <code>{short(o)}</code>
-                        {o.toLowerCase() === mine && <Pill tone="ink">You</Pill>}
+                        {o.toLowerCase() === mine && (
+                          <Pill tone="ink">You</Pill>
+                        )}
                       </td>
                       <td className="end">
                         <Pill tone={done ? "green" : "amber"}>
@@ -373,9 +419,60 @@ export function Proposals() {
               </tbody>
             </table>
           </Panel>
+          {detail.kind === "seats" && (
+            <Panel>
+              <h3>Seats being approved</h3>
+              {(detail.payload?.approvedSeatIds || []).length ? (
+                <ul>
+                  {detail.payload.approvedSeatIds.map((id: string) => (
+                    <li key={id}>
+                      <code>
+                        {detail.payload.seats.find((s: any) => s.id === id)
+                          ?.credential || id}
+                      </code>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>
+                  No pending seats are being added. Existing access changes are
+                  shown above.
+                </p>
+              )}
+              <p className="muted">
+                Other pending invitations remain unapproved.
+              </p>
+            </Panel>
+          )}
+          {detail.payload?.transactionReview && (
+            <Panel>
+              <h3>Decoded transaction details</h3>
+              <p>{detail.payload.transactionReview.method}</p>
+              <dl className="kv">
+                {detail.payload.transactionReview.facts.map(
+                  (f: any, i: number) => (
+                    <div key={i}>
+                      <dt>{f.label}</dt>
+                      <dd>
+                        <code>{f.value}</code>
+                      </dd>
+                    </div>
+                  ),
+                )}
+              </dl>
+              <p className="muted">
+                Requester explanations are personal notes. The contract address
+                and exact calldata remain the authority for what you sign.
+              </p>
+            </Panel>
+          )}
           <JsonDetails
             label="Exact calls and Safe transaction"
-            value={{ kind: detail.kind, payload: detail.payload, safeTx: detail.safe_tx }}
+            value={{
+              kind: detail.kind,
+              payload: detail.payload,
+              safeTx: detail.safe_tx,
+            }}
           />
           {detail.status === "pending" && (
             <>
@@ -413,13 +510,14 @@ export function Proposals() {
                       })
                     }
                   >
-                    Prepare fresh proposal
+                    Check onchain status
                   </Button>
                 </div>
                 <p className="muted">
                   Confirmation requires a successful Safe execution plus one
-                  block. If another transaction changed the Safe nonce, prepare
-                  a fresh proposal and collect new signatures.
+                  block. Check onchain status to recover an execution from
+                  another wallet. A stale proposal must be prepared again from
+                  current settings; old calls are never automatically replayed.
                 </p>
               </details>
               <div className="action-bar">
@@ -446,7 +544,10 @@ export function Proposals() {
                   <RefreshCw size={14} />
                 </Button>
                 {txHash ? (
-                  <Button busy={action.busy} onClick={() => action.run(confirm)}>
+                  <Button
+                    busy={action.busy}
+                    onClick={() => action.run(confirm)}
+                  >
                     Check confirmation
                   </Button>
                 ) : execution?.ready ? (
@@ -461,9 +562,7 @@ export function Proposals() {
                 ) : (
                   <Button
                     disabled={
-                      !ack ||
-                      !execution ||
-                      (!!mine && signed.has(mine))
+                      !ack || !execution || (!!mine && signed.has(mine))
                     }
                     busy={action.busy}
                     onClick={() => action.run(sign)}

@@ -126,7 +126,7 @@ export function Clerks({ initialDraft = false }: { initialDraft?: boolean }) {
       ...p,
       clerkId: id,
       requestId: crypto.randomUUID(),
-      approved: p.decision === "allow",
+      approved: p.decision === "allow" || p.approvalStatus === "approved",
     });
     await load();
   }
@@ -508,7 +508,8 @@ export function Clerks({ initialDraft = false }: { initialDraft?: boolean }) {
                   )}
                 </h2>
                 <p>
-                  Runs above the approval threshold wait here for a manager.
+                  Runs above the threshold need approval from a different Safe
+                  owner.
                 </p>
               </div>
             </div>
@@ -527,58 +528,61 @@ export function Clerks({ initialDraft = false }: { initialDraft?: boolean }) {
                       {sentence(a.status)}
                     </Pill>
                     <div className="queue-actions">
-                      {a.status === "pending" && (
-                        <>
+                      {a.status === "pending" &&
+                        office.role === "principal" &&
+                        a.requested_by !== account.id && (
+                          <>
+                            <Button
+                              kind="secondary"
+                              disabled={action.busy}
+                              onClick={() =>
+                                action.run(async () => {
+                                  await api.office(
+                                    office.id,
+                                    `/approvals/${a.id}`,
+                                    { approve: false },
+                                  );
+                                  await load();
+                                })
+                              }
+                            >
+                              Decline
+                            </Button>
+                            <Button
+                              disabled={action.busy}
+                              onClick={() =>
+                                action.run(async () => {
+                                  await api.office(
+                                    office.id,
+                                    `/approvals/${a.id}`,
+                                    { approve: true },
+                                  );
+                                  await load();
+                                })
+                              }
+                            >
+                              Approve
+                            </Button>
+                          </>
+                        )}
+                      {a.status === "approved" &&
+                        a.requested_by === account.id && (
                           <Button
-                            kind="secondary"
-                            disabled={action.busy}
+                            disabled={action.busy || busyRun}
                             onClick={() =>
                               action.run(async () => {
-                                await api.office(
-                                  office.id,
-                                  `/approvals/${a.id}`,
-                                  { approve: false },
-                                );
-                                await load();
+                                await prepare(a.clerk_id, a.chat);
+                                setPrepared((p: any) => ({
+                                  ...p,
+                                  approved: true,
+                                  approvalId: a.id,
+                                }));
                               })
                             }
                           >
-                            Decline
+                            Quote approved run
                           </Button>
-                          <Button
-                            disabled={action.busy}
-                            onClick={() =>
-                              action.run(async () => {
-                                await api.office(
-                                  office.id,
-                                  `/approvals/${a.id}`,
-                                  { approve: true },
-                                );
-                                await load();
-                              })
-                            }
-                          >
-                            Approve
-                          </Button>
-                        </>
-                      )}
-                      {a.status === "approved" && (
-                        <Button
-                          disabled={action.busy || busyRun}
-                          onClick={() =>
-                            action.run(async () => {
-                              await prepare(a.clerk_id, a.chat);
-                              setPrepared((p: any) => ({
-                                ...p,
-                                approved: true,
-                                approvalId: a.id,
-                              }));
-                            })
-                          }
-                        >
-                          Quote approved run
-                        </Button>
-                      )}
+                        )}
                     </div>
                     <div className="queue-detail">
                       <JsonDetails
@@ -666,6 +670,22 @@ export function Clerks({ initialDraft = false }: { initialDraft?: boolean }) {
               <button className="link" onClick={() => setDraft(clerk)}>
                 Transaction draft <ArrowRight size={13} />
               </button>
+            )}
+            {principal && clerk.status !== "pending" && (
+              <Button
+                kind="secondary"
+                busy={action.busy}
+                onClick={() =>
+                  action.run(async () => {
+                    await api.office(office.id, "/allowance/resync", {
+                      clerkId: clerk.id,
+                    });
+                    await onProposal();
+                  })
+                }
+              >
+                Prepare allowance recovery
+              </Button>
             )}
             {principal && clerk.status !== "pending" && (
               <button
@@ -814,23 +834,23 @@ export function Clerks({ initialDraft = false }: { initialDraft?: boolean }) {
           <Feedback action={action} />
           <div className="actions">
             {!prepared.approved && (
-              <Button
-                kind="secondary"
-                busy={action.busy}
-                onClick={() =>
-                  action.run(async () => {
-                    await api.office(
-                      office.id,
-                      `/approvals/${prepared.approvalId}`,
-                      { approve: true },
-                    );
-                    setPrepared({ ...prepared, approved: true });
-                    await load();
-                  })
-                }
-              >
-                Approve exact request
-              </Button>
+              <>
+                <p>
+                  Another Safe owner must approve this exact request in the
+                  Clerk approval queue.
+                </p>
+                <Button
+                  kind="secondary"
+                  busy={action.busy}
+                  onClick={() =>
+                    action.run(() =>
+                      prepare(prepared.clerkId || prepared.id, prepared.chat),
+                    )
+                  }
+                >
+                  Refresh approval
+                </Button>
+              </>
             )}
             <Button
               busy={action.busy}
@@ -901,7 +921,7 @@ export function Clerks({ initialDraft = false }: { initialDraft?: boolean }) {
                 onChange={(e) => setValue(e.target.value)}
               />
             </Field>
-            <Field label="Explanation">
+            <Field label="Your explanation · requester notes">
               <textarea
                 required
                 value={explanation}

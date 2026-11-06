@@ -201,6 +201,10 @@ export function simulateChain(
       }),
     );
   chain.execution = encodeSafeExecution;
+  chain.findSafeExecution = async (safe: Address, hash: Hex) =>
+    [...executed].find(
+      ([, e]) => e.safe === lower(safe) && e.safeTxHash === hash,
+    )?.[0] || null;
   chain.confirmedSafeTransaction = async (
     txHash: Hex,
     safe: Address,
@@ -411,7 +415,9 @@ export function simulateChain(
     returnData: "0x",
     method: "simulated",
     stateDiff: null,
-    limitations: ["Local test chain: the call was not simulated against real state."],
+    limitations: [
+      "Local test chain: the call was not simulated against real state.",
+    ],
   });
   return { wallet };
 }
