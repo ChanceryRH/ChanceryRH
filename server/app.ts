@@ -26,6 +26,7 @@ import { createRooms } from "./rooms.ts";
 import { createClerks } from "./clerks.ts";
 import { createConversations } from "./conversations.ts";
 import { createUpdates } from "./updates.ts";
+import { createOAuth } from "./oauth.ts";
 import { createMcp } from "./mcp.ts";
 import { registerWeb } from "./web.ts";
 import { registerFeatures } from "./features/index.ts";
@@ -60,6 +61,7 @@ export async function createApp(
     clerks,
     provider,
   });
+  const oauth = createOAuth(db, cfg, crypto, mcp);
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", cfg.production ? 1 : false);
@@ -96,6 +98,7 @@ export async function createApp(
     }
     if (
       req.path !== "/mcp" &&
+      !["/oauth/token", "/oauth/register"].includes(req.path) &&
       !["GET", "HEAD"].includes(req.method) &&
       origin !== cfg.origin
     )
@@ -106,6 +109,11 @@ export async function createApp(
           "Send requests from the configured application origin.",
         ),
       );
+    next();
+  });
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/oauth/") || req.path.startsWith("/.well-known/"))
+      return oauth.router(req, res, next);
     next();
   });
   app.use("/mcp", mcp.router);
@@ -280,6 +288,37 @@ export async function createApp(
   };
   const param = (req: Request, name: string) => String(req.params[name]);
   route("get", "", (a) => offices.get(a), undefined, true);
+  route(
+    "get",
+    "/mcp/oauth/:id",
+    (_a, r) => oauth.details(param(r, "id")),
+    "mcp",
+  );
+  route(
+    "post",
+    "/mcp/oauth/:id/consent",
+    (a, r) => oauth.consent(a, param(r, "id"), r.body),
+    "mcp",
+  );
+  route("post", "/mcp/connections/revoke-all", (a) => mcp.revokeAll(a), "mcp");
+  route(
+    "post",
+    "/mcp/connections/:id/control",
+    (a, r) => mcp.control(a, param(r, "id"), r.body),
+    "mcp",
+  );
+  route(
+    "post",
+    "/mcp/connections/:id/budget",
+    (a, r) => mcp.setBudget(a, param(r, "id"), r.body),
+    "mcp",
+  );
+  route(
+    "get",
+    "/mcp/connections/:id/activity",
+    (a, r) => mcp.activity(a, param(r, "id"), r.query),
+    "mcp",
+  );
   route("get", "/mcp/connections", (a) => mcp.list(a), "mcp");
   route("post", "/mcp/connections", (a, r) => mcp.create(a, r.body), "mcp");
   route(

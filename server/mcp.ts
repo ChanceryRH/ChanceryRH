@@ -1,4 +1,5 @@
 import express, { type Request } from "express";
+import { dollars, picoToUsdString } from "../shared/money.ts";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -105,7 +106,7 @@ export function createMcp(deps: {
       "A valid connection token is required.",
     );
     const [connection] = await db.query(
-      "SELECT * FROM mcp_connections WHERE token_hash=$1 AND revoked_at IS NULL AND expires_at>now()",
+      "SELECT * FROM mcp_connections WHERE token_hash=$1 AND revoked_at IS NULL AND paused_at IS NULL AND expires_at>now() AND (token_expires_at IS NULL OR token_expires_at>now())",
       [hash(token)],
     );
     assert(
@@ -146,11 +147,172 @@ export function createMcp(deps: {
   }
   async function list(a: Access) {
     allowed(a);
-    return db.office(a.office.id, (q) =>
-      q.query(
-        "SELECT id,name,account_id,scopes,created_at,expires_at,revoked_at,last_used_at FROM mcp_connections WHERE ($1::boolean OR account_id=$2) ORDER BY created_at DESC LIMIT 100",
+    return db.office(a.office.id, async (q) => {
+      const rows = await q.query(
+        "SELECT id,name,account_id,scopes,created_at,expires_at,revoked_at,last_used_at,paused_at,budget_pico,max_request_pico FROM mcp_connections WHERE ($1::boolean OR account_id=$2) ORDER BY created_at DESC LIMIT 100",
         [a.role === "principal", a.account.id],
-      ),
+      );
+      return Promise.all(
+        rows.map(async ({ budget_pico, max_request_pico, ...row }) => {
+          const used = await agentUsage(q, row.id);
+          return {
+            ...row,
+            budgetUsd:
+              budget_pico === null
+                ? null
+                : picoToUsdString(BigInt(budget_pico)),
+            maxRequestUsd:
+              max_request_pico === null
+                ? null
+                : picoToUsdString(BigInt(max_request_pico)),
+            usedUsd: picoToUsdString(used),
+            remainingUsd:
+              budget_pico === null
+                ? null
+                : picoToUsdString(
+                    BigInt(budget_pico) > used
+                      ? BigInt(budget_pico) - used
+                      : 0n,
+                  ),
+          };
+        }),
+      );
+    });
+  }
+  async function agentUsage(q: Query, id: string) {
+    const [r] = await q.query(
+      "SELECT coalesce(sum(CASE WHEN r.status IN ('inflight','uncertain') THEN r.reserved_pico ELSE coalesce(r.charged_pico,0) END),0)::text AS used FROM requests r JOIN mcp_drafts d ON d.id=r.id WHERE d.connection_id=$1 AND (r.created_at>now()-interval '24 hours' OR r.status IN ('inflight','uncertain'))",
+      [id],
+    );
+    return BigInt(r.used);
+  }
+  async function owned(q: Query, a: Access, id: string) {
+    const [row] = await q.query(
+      "SELECT * FROM mcp_connections WHERE id=$1 AND (account_id=$2 OR $3::boolean) FOR UPDATE",
+      [id, a.account.id, a.role === "principal"],
+    );
+    assert(row, 404, "mcp_connection_not_found", "Connection not found.");
+    return row;
+  }
+  async function control(a: Access, id: string, body: unknown) {
+    allowed(a);
+    const { action } = z
+      .strictObject({ action: z.enum(["pause", "resume"]) })
+      .parse(body);
+    if (action === "resume") fresh(a);
+    return db.office(a.office.id, async (q) => {
+      await q.query("SELECT * FROM office_locks FOR UPDATE");
+      const row = await owned(q, a, id);
+      assert(
+        !row.revoked_at && new Date(row.expires_at).getTime() > Date.now(),
+        409,
+        "mcp_connection_inactive",
+        "Create a new connection after expiry or revocation.",
+      );
+      // Only the connection owner can restore authority. Principals can stop it.
+      assert(
+        action === "pause" || row.account_id === a.account.id,
+        403,
+        "mcp_resume_denied",
+        "Only the connection owner can resume access.",
+      );
+      await q.query(
+        "UPDATE mcp_connections SET paused_at=CASE WHEN $2='pause' THEN coalesce(paused_at,now()) ELSE NULL END WHERE id=$1",
+        [id, action],
+      );
+      await audit(q, a, "connection_" + action, id);
+      return { status: action === "pause" ? "paused" : "active" };
+    });
+  }
+  async function revokeAll(a: Access) {
+    allowed(a);
+    return db.office(a.office.id, async (q) => {
+      await q.query("SELECT * FROM office_locks FOR UPDATE");
+      const rows = await q.query(
+        "UPDATE mcp_connections SET revoked_at=now() WHERE revoked_at IS NULL AND (account_id=$1 OR $2::boolean) RETURNING id",
+        [a.account.id, a.role === "principal"],
+      );
+      await q.query(
+        "UPDATE mcp_drafts SET status='rejected' WHERE status='pending' AND connection_id IN (SELECT id FROM mcp_connections WHERE revoked_at IS NOT NULL AND (account_id=$1 OR $2::boolean))",
+        [a.account.id, a.role === "principal"],
+      );
+      await audit(q, a, "connections_revoked_all", a.account.id);
+      return { revoked: rows.length };
+    });
+  }
+  const moneyInput = z.string().regex(/^(0|[1-9][0-9]{0,4})(\.[0-9]{1,6})?$/);
+  async function setBudget(a: Access, id: string, body: unknown) {
+    allowed(a);
+    fresh(a);
+    const input = z
+      .strictObject({ budgetUsd: moneyInput, maxRequestUsd: moneyInput })
+      .parse(body);
+    const cap = dollars(input.budgetUsd),
+      max = dollars(input.maxRequestUsd);
+    assert(
+      max <= cap,
+      400,
+      "agent_budget_invalid",
+      "The per-request limit must fit within the rolling 24-hour budget.",
+    );
+    return db.office(a.office.id, async (q) => {
+      await q.query("SELECT * FROM office_locks FOR UPDATE");
+      const row = await owned(q, a, id);
+      assert(
+        !row.revoked_at,
+        409,
+        "mcp_connection_inactive",
+        "This connection was revoked.",
+      );
+      assert(
+        row.account_id === a.account.id ||
+          (row.budget_pico !== null &&
+            cap <= BigInt(row.budget_pico) &&
+            row.max_request_pico !== null &&
+            max <= BigInt(row.max_request_pico)),
+        403,
+        "agent_budget_denied",
+        "Only the connection owner can increase its limits.",
+      );
+      await q.query(
+        "UPDATE mcp_connections SET budget_pico=$2,max_request_pico=$3 WHERE id=$1",
+        [id, cap.toString(), max.toString()],
+      );
+      await audit(q, a, "budget_updated", id);
+      return { updated: true };
+    });
+  }
+  async function authorizeAgent(
+    q: Query,
+    a: Access,
+    id: string,
+    maximum: bigint,
+  ) {
+    const row = await owned(q, a, id);
+    assert(
+      row.account_id === a.account.id &&
+        row.role_at_creation === a.role &&
+        !row.revoked_at &&
+        !row.paused_at &&
+        !row.paused_at &&
+        new Date(row.expires_at).getTime() > Date.now() &&
+        row.scopes.includes("requests:prepare"),
+      403,
+      "mcp_connection_inactive",
+      "The agent is no longer authorized.",
+    );
+    assert(
+      row.max_request_pico === null || maximum <= BigInt(row.max_request_pico),
+      402,
+      "agent_request_limit",
+      "This request exceeds the agent’s per-request limit.",
+    );
+    assert(
+      row.budget_pico === null ||
+        (await agentUsage(q, id)) + maximum <= BigInt(row.budget_pico),
+      402,
+      "agent_budget_limit",
+      "This agent has insufficient remaining budget.",
     );
   }
   async function create(a: Access, body: unknown) {
@@ -166,6 +328,8 @@ export function createMcp(deps: {
           .regex(/^[^\x00-\x1f\x7f]+$/),
         scopes: z.array(scopeSchema).min(1).max(MCP_SCOPES.length),
         expiresInDays: z.number().int().min(1).max(30).default(7),
+        budgetUsd: moneyInput.default("25"),
+        maxRequestUsd: moneyInput.default("1"),
       })
       .parse(body);
     assert(
@@ -180,6 +344,12 @@ export function createMcp(deps: {
       400,
       "secret_detected",
       "Do not put secrets in connection names.",
+    );
+    assert(
+      dollars(input.maxRequestUsd) <= dollars(input.budgetUsd),
+      400,
+      "agent_budget_invalid",
+      "Per-request limit must fit within the agent budget.",
     );
     const token = "ch_mcp_" + randomBytes(32).toString("base64url"),
       id = uid("mcp_"),
@@ -199,7 +369,7 @@ export function createMcp(deps: {
         "Revoke an existing connection before creating another.",
       );
       await q.query(
-        "INSERT INTO mcp_connections(id,office_id,account_id,name,token_hash,scopes,role_at_creation,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
+        "INSERT INTO mcp_connections(id,office_id,account_id,name,token_hash,scopes,role_at_creation,expires_at,budget_pico,max_request_pico) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
         [
           id,
           a.office.id,
@@ -209,6 +379,8 @@ export function createMcp(deps: {
           JSON.stringify([...new Set(input.scopes)]),
           a.role,
           expiresAt,
+          dollars(input.budgetUsd).toString(),
+          dollars(input.maxRequestUsd).toString(),
         ],
       );
       await audit(q, a, "connection_created", id);
@@ -218,6 +390,7 @@ export function createMcp(deps: {
   async function revoke(a: Access, id: string) {
     allowed(a);
     await db.office(a.office.id, async (q) => {
+      await q.query("SELECT * FROM office_locks FOR UPDATE");
       const [row] = await q.query(
         "UPDATE mcp_connections SET revoked_at=COALESCE(revoked_at,now()) WHERE id=$1 AND (account_id=$2 OR $3::boolean) RETURNING id",
         [id, a.account.id, a.role === "principal"],
@@ -264,7 +437,7 @@ export function createMcp(deps: {
     return db.office(a.office.id, async (q) => {
       await q.query("SELECT * FROM office_locks FOR UPDATE");
       const [live] = await q.query(
-        "SELECT id FROM mcp_connections WHERE id=$1 AND revoked_at IS NULL AND expires_at>now()",
+        "SELECT id FROM mcp_connections WHERE id=$1 AND revoked_at IS NULL AND paused_at IS NULL AND expires_at>now()",
         [g.connection.id],
       );
       assert(
@@ -287,7 +460,12 @@ export function createMcp(deps: {
         return {
           id: prior.id,
           status: prior.status,
-          reviewUrl: cfg.origin + "/app/#/settings",
+          reviewUrl:
+            cfg.origin +
+            "/app/#/agents?office=" +
+            encodeURIComponent(a.office.id) +
+            "&request=" +
+            encodeURIComponent(prior.id),
         };
       }
       const [pending] = await q.query(
@@ -317,9 +495,14 @@ export function createMcp(deps: {
       return {
         id,
         status: "pending",
-        reviewUrl: cfg.origin + "/app/#/settings",
+        reviewUrl:
+          cfg.origin +
+          "/app/#/agents?office=" +
+          encodeURIComponent(a.office.id) +
+          "&request=" +
+          encodeURIComponent(id),
         nextStep:
-          "Open Settings → AI connections in Chancery. Review the request and price, then approve it. This tool has not executed or charged anything.",
+          "Open Chancery Agents. Review the request and price, then approve it. This tool has not executed or charged anything.",
       };
     });
   }
@@ -327,7 +510,7 @@ export function createMcp(deps: {
     allowed(a);
     const [row] = await db.office(a.office.id, (q) =>
       q.query(
-        "SELECT d.*,c.name AS connection_name,c.revoked_at,c.expires_at AS connection_expires_at FROM mcp_drafts d JOIN mcp_connections c ON c.id=d.connection_id WHERE d.id=$1 AND d.account_id=$2 AND ($3::text IS NULL OR d.connection_id=$3)",
+        "SELECT d.*,c.name AS connection_name,c.revoked_at,c.paused_at,c.expires_at AS connection_expires_at FROM mcp_drafts d JOIN mcp_connections c ON c.id=d.connection_id WHERE d.id=$1 AND d.account_id=$2 AND ($3::text IS NULL OR d.connection_id=$3)",
         [id, a.account.id, connectionId || null],
       ),
     );
@@ -344,6 +527,7 @@ export function createMcp(deps: {
     );
     assert(
       !row.revoked_at &&
+        !row.paused_at &&
         new Date(row.connection_expires_at).getTime() > Date.now(),
       403,
       "mcp_connection_inactive",
@@ -405,8 +589,9 @@ export function createMcp(deps: {
     pending(row);
     // Serialize against revocation. Only the signed-in requester can cross this boundary.
     await db.office(a.office.id, async (q) => {
+      await q.query("SELECT * FROM office_locks FOR UPDATE");
       const [live] = await q.query(
-        "SELECT id FROM mcp_connections WHERE id=$1 AND revoked_at IS NULL AND expires_at>now() FOR UPDATE",
+        "SELECT id FROM mcp_connections WHERE id=$1 AND revoked_at IS NULL AND paused_at IS NULL AND expires_at>now() FOR UPDATE",
         [row.connection_id],
       );
       assert(
@@ -428,11 +613,19 @@ export function createMcp(deps: {
       await audit(q, a, "request_approved", id);
     });
     try {
-      return await ledger.request(a, {
-        id,
-        quoteId: input.quoteId,
-        chat: crypto.open(a.office.id, "mcp-draft:" + id, row.request_enc),
-      });
+      return await ledger.request(
+        a,
+        {
+          id,
+          quoteId: input.quoteId,
+          chat: crypto.open(a.office.id, "mcp-draft:" + id, row.request_enc),
+        },
+        {
+          ...ledger.actorFor(a),
+          authorize: (q, _chat, maximum) =>
+            authorizeAgent(q, a, row.connection_id, maximum),
+        },
+      );
     } catch (e) {
       // A provider reservation must never be retried automatically. Only reset if execution never began.
       await db.office(a.office.id, (q) =>
@@ -460,6 +653,40 @@ export function createMcp(deps: {
       await audit(q, a, "request_rejected", id);
     });
     return { rejected: true };
+  }
+  async function activity(a: Access, id: string, raw: unknown) {
+    allowed(a);
+    const { offset } = z
+      .object({ offset: z.coerce.number().int().min(0).max(10000).default(0) })
+      .parse(raw);
+    return db.office(a.office.id, async (q) => {
+      await owned(q, a, id);
+      const rows = await q.query(
+        "SELECT d.id,d.created_at,d.expires_at,d.status AS approval_status,r.status AS execution_status,r.model,r.charged_pico::text,r.reserved_pico::text,(SELECT id FROM receipts WHERE request_id=d.id ORDER BY created_at DESC LIMIT 1) AS receipt_id FROM mcp_drafts d LEFT JOIN requests r ON r.id=d.id WHERE d.connection_id=$1 ORDER BY d.created_at DESC,d.id DESC LIMIT 26 OFFSET $2",
+        [id, offset],
+      );
+      const events = await q.query(
+        "SELECT action,created_at FROM audit_events WHERE reference=$1 ORDER BY created_at DESC LIMIT 30",
+        [id],
+      );
+      return {
+        items: rows
+          .slice(0, 25)
+          .map(({ charged_pico, reserved_pico, ...row }) => ({
+            ...row,
+            chargedUsd:
+              charged_pico === null
+                ? null
+                : picoToUsdString(BigInt(charged_pico)),
+            reservedUsd:
+              reserved_pico === null
+                ? null
+                : picoToUsdString(BigInt(reserved_pico)),
+          })),
+        events,
+        nextOffset: rows.length > 25 ? offset + 25 : null,
+      };
+    });
   }
   function server(g: Grant) {
     const s = new McpServer(
@@ -673,7 +900,10 @@ export function createMcp(deps: {
       next();
     } catch (e) {
       if (e instanceof ApiError && e.status === 401)
-        res.set("WWW-Authenticate", 'Bearer realm="Chancery MCP"');
+        res.set(
+          "WWW-Authenticate",
+          `Bearer resource_metadata="${cfg.origin}/.well-known/oauth-protected-resource/mcp"`,
+        );
       if (e instanceof ApiError && e.status === 429)
         res.set("Retry-After", "60");
       next(e);
@@ -710,5 +940,18 @@ export function createMcp(deps: {
         },
       }),
   );
-  return { router, list, create, revoke, drafts, quote, approve, reject };
+  return {
+    router,
+    list,
+    create,
+    revoke,
+    revokeAll,
+    control,
+    setBudget,
+    activity,
+    drafts,
+    quote,
+    approve,
+    reject,
+  };
 }

@@ -68,6 +68,12 @@ Follow AI usage into the Ledger. Inspect signed receipts, verify their signature
 </tr>
 </table>
 
+## Your agents, your rules
+
+Connect AI tools through MCP with scoped consent or a protected connection token. Chancery Agents brings connection status, rolling budgets, approval requests, activity, and receipt proofs into one place. Pause an agent, revoke access, or stop every connection you control. AI work starts only after you review the exact request and maximum price.
+
+[Open Chancery Agents](https://trychancery.com/app/#/agents) · [Connection guide](DEVELOPMENT.md#chancery-agents-mcp)
+
 ## From idea to receipt
 
 One flow connects the work to its permissions, price, and proof.

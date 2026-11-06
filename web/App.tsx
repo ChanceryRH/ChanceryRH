@@ -86,6 +86,7 @@ import {
 import { Ledger } from "./pages/Ledger";
 import { People } from "./pages/People";
 import { Proposals } from "./pages/Proposals";
+import { Agents } from "./pages/AgentHub";
 import { Settings as SettingsPage } from "./pages/Settings";
 import {
   AllowanceFooter,
@@ -150,10 +151,12 @@ const routes = [
   ["reimbursements", "Reimbursements", HandCoins],
   ["guests", "Guest Passes", Ticket],
   ["updates", "More", Sparkles],
+  ["agents", "Agents", Users],
   ["settings", "Settings", Settings],
 ] as const;
 // Pages for updates that are hidden from navigation until the deployment releases them.
 const releasedPages: Record<string, string> = {
+  agents: "mcp",
   playbooks: "playbooks",
   compare: "side_by_side",
   files: "office_files",
@@ -177,6 +180,7 @@ export function App() {
     [models, setModels] = useState<Model[]>([]),
     [provider, setProvider] = useState<WalletProvider | null>(null),
     [page, setPage] = useState(pageFromHash),
+    [hashRevision, setHashRevision] = useState(0),
     [mobile, setMobile] = useState(false),
     [picker, setPicker] = useState(false),
     [creation, setCreation] = useState(false),
@@ -242,7 +246,7 @@ export function App() {
     setMobile(false);
   }
   useEffect(() => {
-    const fn = () => setPage(pageFromHash());
+    const fn = () => { setPage(pageFromHash()); setHashRevision(v => v + 1); };
     window.addEventListener("hashchange", fn);
     return () => window.removeEventListener("hashchange", fn);
   }, []);
@@ -686,6 +690,8 @@ export function App() {
                         <People />
                       ) : page === "proposals" ? (
                         <Proposals />
+                      ) : page === "agents" ? (
+                        <Agents key={hashRevision} />
                       ) : page === "settings" ? (
                         <SettingsPage />
                       ) : page === "clerks" ? (

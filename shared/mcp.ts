@@ -42,6 +42,11 @@ export type McpConnection = {
   expires_at: string;
   revoked_at: string | null;
   last_used_at: string | null;
+  paused_at: string | null;
+  budgetUsd: string | null;
+  maxRequestUsd: string | null;
+  usedUsd: string;
+  remainingUsd: string | null;
 };
 export type McpDraft = {
   id: string;

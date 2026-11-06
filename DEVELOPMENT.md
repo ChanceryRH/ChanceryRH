@@ -1,13 +1,13 @@
 # Build and operate Chancery
 
 
-## AI connections (MCP)
+## Chancery Agents (MCP)
 
-Enable the `mcp` release after applying migration 010. Append `mcp` to the existing `RELEASED_UPDATES` list. Removing it disables MCP access. No contract change or signing key is needed.
+Apply migrations through 012 before starting the updated API and worker. Chancery Agents uses the existing `mcp` release setting for every active non-guest Office member. To enable MCP on a new deployment, append `mcp` to the existing `RELEASED_UPDATES` list. Removing it disables MCP access. No contract change or signing key is needed.
 
-Open **Settings → AI connections**. Sign in recently, choose permissions and a 1–30 day expiry, and create a connection. Copy the one-time token to your client's protected credential configuration. Each token belongs to one account and one Office. An Office owner may revoke any connection. Revocation cancels pending work; work already approved may finish.
+Open **Agents** (also available through Settings → AI connections). Sign in recently, choose permissions and a 1–30 day expiry, and create a connection. Copy the one-time token to your client's protected credential configuration. Each token belongs to one account and one Office. An Office owner may revoke any connection. Revocation cancels pending work; work already approved may finish.
 
-The remote endpoint is `https://<your-app-host>/mcp`, using Streamable HTTP and `Authorization: Bearer <connection-token>`. The proxy must preserve the configured application's Host header. Cookie sessions are not MCP credentials. URL credentials, foreign Origins, JSON-RPC batches and oversized requests are rejected. This release uses manually provisioned tokens, not OAuth discovery or automatic browser authorization.
+The remote endpoint is `https://<your-app-host>/mcp`, using Streamable HTTP and `Authorization: Bearer <connection-token>`. The proxy must preserve the configured application's Host header. Cookie sessions are not MCP credentials. URL credentials, foreign Origins, JSON-RPC batches and oversized requests are rejected. Compatible clients can discover OAuth authorization at `/.well-known/oauth-protected-resource/mcp` and `/.well-known/oauth-authorization-server`. Dynamic client registration uses `/oauth/register`; authorization and token exchange use `/oauth/authorize` and `/oauth/token`. Public clients use authorization code + S256 PKCE, an exact registered redirect URI, and the canonical MCP URL as the `resource`. The consent page identifies the self-declared client and callback address and allows scope reduction, budget selection, and expiry. Access tokens last at most 15 minutes; refresh tokens rotate and replay revokes the connection. HTTPS or exact loopback callbacks are accepted. Client metadata URL registration is not advertised. Manual tokens remain available.
 
 For local stdio clients, run `node --import tsx scripts/mcp-bridge.ts` with the repository as the working directory, or configure absolute paths. Provide `CHANCERY_MCP_URL` and `CHANCERY_MCP_TOKEN` through the client's secret store or private environment configuration. Never commit that configuration. The bridge accepts HTTPS (or loopback HTTP for local development), refuses redirects, and keeps protocol stdout free of diagnostics and secrets.
 
@@ -22,11 +22,15 @@ For local stdio clients, run `node --import tsx scripts/mcp-bridge.ts` with the 
 
 Conversation access is limited to your own history. Ledger access uses your existing Office role. Sealed Room keys and ciphertext are not exposed. Returned text is untrusted content; clients must not treat it as instructions.
 
-`prepare_ai_request` accepts a model, prompt, output-token limit, and stable `clientRequestId`. It stores an encrypted request with a 24-hour approval window; it does not run inference or spend. In Settings, review the exact prompt, get a fresh price and approve. Browser approval uses the existing signed quote, budget checks, idempotent execution and receipt path. Standard retention is required so the request can be reviewed and its result returned to the originating connection. Another connection cannot retrieve that result.
+`prepare_ai_request` accepts a model, prompt, output-token limit, and stable `clientRequestId`. It stores an encrypted request with a 24-hour approval window; it does not run inference or spend. Open the returned direct review link, review the exact prompt, get a fresh price and approve. The link selects a request; it never authorizes execution. Browser approval uses the existing signed quote, budget checks, idempotent execution and receipt path. Standard retention is required so the request can be reviewed and its result returned to the originating connection. Another connection cannot retrieve that result.
 
 Credentials are hashed, checked on each request, and invalidated by expiry, revocation or a changed Office role. Tools recheck current Office access. Database-backed limits apply across API processes. Audit events contain tool names and identifiers, never tokens, prompts, responses or client IPs. Existing encrypted-storage backup and retention procedures apply to draft records.
 
-Run `node --import tsx --test tests/mcp.test.ts` for official SDK HTTP and stdio clients, isolation, expiry, revocation, CSRF, limits and the approval boundary.
+New connections default to a 25 USD rolling 24-hour budget and 1 USD maximum per request. Existing connections continue using Office/seat limits until an agent limit is set. Agent caps are enforced within the atomic ledger reservation; unresolved reservations continue to count after the rolling window. Raising limits requires the connection owner and recent sign-in. Office owners can reduce existing agent limits. All AI requests still require human approval.
+
+Pause stops new access and execution reservations while preserving pending work. Only the connection owner can resume it. Revoke permanently invalidates access and rejects pending drafts; revoke-all is scoped to the member’s own connections or, for an Office owner, the whole Office. Work already executing may finish. These controls do not grant general wallet payments or trading authority. Agent activity exposes status, costs, and receipt-proof links without exposing other members’ prompts.
+
+Run `node --import tsx --test --test-concurrency=1 tests/mcp.test.ts tests/agent-controls.test.ts` for official SDK HTTP and stdio clients, isolation, expiry, revocation, CSRF, limits and the approval boundary.
 
 
 ## Fresh clone
