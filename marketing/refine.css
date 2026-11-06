@@ -535,3 +535,15 @@ footer .footer-columns h4 {
     padding: 4px;
   }
 }
+
+/* Keep the live app and wallet entry points visible at every screen size. */
+.nav-actions .wallet-link { display: inline-flex; border: 1px solid currentColor; color: inherit; background: transparent; white-space: nowrap; }
+@media (min-width: 1001px) and (max-width: 1100px) { #mobile-menu { position: absolute; top: 68px; left: 0; width: 100%; padding: 22px 32px; background: #17171ff5; color: #eeeef4; } #mobile-menu > a { display: block; padding: 13px 0; } }
+@media (max-width: 1100px) { .desktop-nav { display: none; } .mobile-toggle { display: flex; flex-direction: column; justify-content: center; gap: 7px; width: 26px; height: 28px; } .mobile-toggle span { width: 23px; height: 1px; background: currentColor; } }
+@media (max-width: 700px) {
+ .site-header { padding-inline: 14px; gap: 12px; }
+ .nav-actions { gap: 8px; }
+ .nav-actions > .button { display: inline-flex; }
+ .nav-actions .button.small { padding: 8px 10px; font-size: 12px; min-height: 38px; }
+ .wordmark > span { display: none; }
+}

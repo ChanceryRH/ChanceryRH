@@ -150,6 +150,7 @@ export function App() {
     [panelHost, setPanelHost] = useState<HTMLElement | null>(null),
     [theme, setThemeState] = useState<Theme>(storedTheme),
     [, setSystemTick] = useState(0);
+  const walletConnect = useRef<(() => void) | null>(null);
   const action = useAction();
   const dark = resolvedTheme(theme) === "dark";
   /* Switching light/dark reveals the new theme as a circle growing from
@@ -522,6 +523,11 @@ export function App() {
               <i />
               Robinhood Chain
             </span>
+            {!account && !loading && config && (
+              <Button kind="secondary" onClick={() => walletConnect.current?.()}>
+                <WalletIcon size={15} /> Connect wallet
+              </Button>
+            )}
             {account?.wallet && !provider && (
               <Button
                 kind="secondary"
@@ -611,6 +617,7 @@ export function App() {
                 config={config}
                 signedIn={signedIn}
                 setProvider={setProvider}
+                walletConnect={walletConnect}
               />
             ) : account && config && !selected ? (
               <div className="start">
@@ -754,10 +761,12 @@ function Welcome({
   config,
   signedIn,
   setProvider,
+  walletConnect,
 }: {
   config: AppConfig;
   signedIn: (a: Account) => void;
   setProvider: (p: WalletProvider) => void;
+  walletConnect: { current: (() => void) | null };
 }) {
   const action = useAction(),
     [wallets, setWallets] = useState(discoverWallets),
@@ -780,6 +789,14 @@ function Welcome({
     setProvider(wallet.provider);
     signedIn(response.account);
   }
+  useEffect(() => {
+    walletConnect.current = () => { void action.run(walletLogin); };
+    return () => { walletConnect.current = null; };
+  });
+  useEffect(() => {
+    if (location.hash === "#connect-wallet")
+      document.getElementById("connect-wallet")?.focus();
+  }, []);
   async function passkey(register = false) {
     if (!browserSupportsWebAuthn())
       throw new Error(
@@ -852,7 +869,7 @@ function Welcome({
             </select>
           </Field>
         )}
-        <Button onClick={() => action.run(walletLogin)} busy={action.busy}>
+        <Button id="connect-wallet" onClick={() => action.run(walletLogin)} busy={action.busy}>
           <WalletIcon size={18} />
           Continue with wallet
           <ArrowUpRight size={16} />

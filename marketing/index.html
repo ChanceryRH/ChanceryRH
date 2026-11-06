@@ -14,6 +14,10 @@
       property="og:description"
       content="Your Safe. Your team. Your office."
     />
+    <meta
+      property="og:image"
+      content="https://trychancery.com/assets/chancery-glass.png"
+    />
     <link rel="icon" href="assets/mark.svg" type="image/svg+xml" />
     <link rel="preload" href="assets/chancery-pavilion.png" as="image" />
     <link rel="stylesheet" href="styles.css" />
@@ -93,19 +97,17 @@
             ><a href="#field-notes"
               ><b>Inside Chancery</b
               ><small>Explore the product in detail.</small></a
-            ><button data-demo>
-              <b>Interactive demo</b
+            ><a href="/app/">
+              <b>Dashboard</b
               ><small>Take a look around the office.</small>
-            </button>
+            </a>
           </div>
         </div>
         <a href="#principles">About <span class="chevron"></span></a
         ><a href="#pricing">Pricing</a>
       </nav>
       <div class="nav-actions">
-        <a class="text-action" href="#office">Explore</a
-        ><button class="button primary small" data-demo>Open demo</button
-        ><button
+        <a class="button wallet-link small" href="/app/#connect-wallet">Connect wallet</a><a class="button primary small" href="/app/">Open app</a><button
           class="mobile-toggle"
           aria-label="Open menu"
           aria-expanded="false"
@@ -118,9 +120,9 @@
         <a href="#office">The workspace</a><a href="#rooms">Private rooms</a
         ><a href="#clerks">AI clerks</a><a href="#ledger">The ledger</a
         ><a href="#how-it-works">How it works</a><a href="#pricing">Pricing</a
-        ><button class="button primary" data-demo>
-          Explore the demo <span>↗</span>
-        </button>
+        ><a class="button primary" href="/app/">
+          Open app <span>↗</span>
+        </a>
       </nav>
     </header>
     <main id="main">
@@ -144,9 +146,9 @@
                     stroke-width="1.5"
                   /></svg
                 >Built for your Safe</span
-              ><button class="button primary" data-demo>
+              ><a class="button primary" href="/app/">
                 Explore Chancery
-              </button>
+              </a>
             </div>
             <a class="button glass" href="#how-it-works">How it works</a>
           </div>
@@ -236,14 +238,14 @@
                 </div>
               </div>
             </div>
-            <button class="underlined" data-demo>
-              Launch demo <span>↗</span>
-            </button>
+            <a class="underlined" href="/app/">
+              Open app <span>↗</span>
+            </a>
           </div>
           <div
             class="office-visual"
             id="product-visual"
-            aria-label="Illustrative Chancery workspace"
+            aria-label="Chancery workspace"
           >
             <div class="app-window">
               <div class="app-sidebar">
@@ -331,7 +333,7 @@
                 </div>
               </div>
             </div>
-            <span class="visual-caption">ILLUSTRATIVE WORKSPACE</span>
+            <span class="visual-caption">YOUR CHANCERY WORKSPACE</span>
           </div>
         </section>
         <span class="engraved-rule" aria-hidden="true"></span>
@@ -1162,8 +1164,7 @@
           <img src="assets/mark.svg" alt="" />
           <h2>Keep the office.<br /><em>Keep the record.</em></h2>
           <div>
-            <button class="button primary" data-demo>Explore Chancery</button
-            ><a class="button outline" href="#how-it-works">How it works</a>
+            <a class="button primary" href="/app/">Explore Chancery</a><a class="button outline" href="#how-it-works">How it works</a>
           </div>
         </section>
         <section class="end-cards wrap">
@@ -1173,9 +1174,9 @@
               Every model, private rooms, and AI clerks. All run from your Safe,
               on terms your team approves.
             </p>
-            <button class="underlined" data-demo>
+            <a class="underlined" href="/app/">
               Explore the workspace <span>↗</span>
-            </button>
+            </a>
           </article>
           <article>
             <h2>A record for your treasury</h2>
@@ -1183,9 +1184,9 @@
               Follow usage as it happens. Close every month with a signed
               statement and a clear trail from work to spend.
             </p>
-            <button class="underlined" data-demo-view="Ledger">
+            <a class="underlined" href="/app/#/ledger">
               Explore the ledger <span>↗</span>
-            </button>
+            </a>
           </article>
         </section>
       </div>
@@ -1206,7 +1207,7 @@
             <h4>Platform</h4>
             <a href="#how-it-works">How it works</a
             ><a href="#pricing">Pricing</a><a href="#security">Security</a
-            ><button data-demo>Interactive demo</button>
+            ><a href="/app/">Dashboard</a>
           </div>
           <div>
             <h4>For your team</h4>
@@ -1218,8 +1219,8 @@
             <h4>Chancery</h4>
             <a href="#principles">Our idea</a
             ><a href="#field-notes">Inside Chancery</a
-            ><button data-details="privacy">Preview privacy</button
-            ><button data-details="about">About this preview</button>
+            ><button data-details="privacy">Privacy</button
+            ><button data-details="about">About Chancery</button>
           </div>
         </div>
         <div class="footer-bottom">
@@ -1228,14 +1229,7 @@
           ><a href="#">Back to top ↑</a>
         </div>
         <div class="footer-colophon"><span>Set in Newsreader, Instrument Sans &amp; IBM Plex Mono</span><span>Settled in USDG · Robinhood Chain</span><span>Receipts signed Ed25519 · Merkle-anchored</span></div>
-        <p class="footer-disclosure">
-          Product design preview. Workspace balances, activity, and members are
-          illustrative. This preview does not connect a wallet, create an
-          account, execute AI tasks, or move funds. Product features and pricing
-          reflect the supplied Chancery overview and remain subject to
-          implementation. Chancery is not a bank. Works with your Safe; no
-          affiliation with wallet providers is implied.
-        </p>
+        <p class="footer-disclosure">Chancery connects your team’s AI workspace to your Safe. Your owners control the allowance and approve transactions. Chancery is not a bank. No affiliation with wallet providers is implied.</p>
       </div>
     </footer>
 
@@ -1248,55 +1242,9 @@
       <div class="eyebrow" id="detail-label">INSIDE CHANCERY</div>
       <h2 id="detail-title"></h2>
       <div id="detail-body"></div>
-      <button class="button primary" data-demo>
-        Explore the demo <span>↗</span>
-      </button>
-    </dialog>
-    <dialog class="demo-dialog" id="demo-dialog" aria-labelledby="demo-title">
-      <div class="demo-topbar">
-        <a class="wordmark" href="#" aria-label="Chancery demo"
-          ><img src="assets/mark.svg" alt="" /><span>CHANCERY</span></a
-        ><span class="demo-badge">INTERACTIVE PREVIEW</span
-        ><button class="dialog-close" aria-label="Close demo">×</button>
-      </div>
-      <div class="demo-layout">
-        <aside class="demo-sidebar">
-          <div class="demo-office-name">
-            <span class="avatar">N</span>
-            <div>Northstar Office<small>Sample workspace</small></div>
-          </div>
-          <nav aria-label="Demo navigation">
-            <button class="active" data-view="Workspace">
-              <span aria-hidden="true">▣</span> Workspace</button
-            ><button data-view="Rooms">
-              <span aria-hidden="true">◇</span> Rooms</button
-            ><button data-view="Clerks">
-              <span aria-hidden="true">✳</span> Clerks</button
-            ><button data-view="Ledger">
-              <span aria-hidden="true">▤</span> Ledger
-            </button>
-          </nav>
-          <div class="demo-safe">
-            Your Safe controls the office.<small
-              >No wallet connection required.</small
-            >
-          </div>
-        </aside>
-        <div class="demo-main">
-          <div class="demo-title-row">
-            <div>
-              <small id="demo-eyebrow">YOUR OFFICE, AT A GLANCE</small>
-              <h2 id="demo-title">A little space to do great work.</h2>
-            </div>
-            <span class="sample-label">Sample data</span>
-          </div>
-          <div id="demo-content"></div>
-          <p class="demo-notice">
-            Explore sample rooms, review a clerk draft, or export an example
-            statement. Changes stay in this preview.
-          </p>
-        </div>
-      </div>
+      <a class="button primary" href="/app/">
+        Open app <span>↗</span>
+      </a>
     </dialog>
     <div class="toast" role="status" aria-live="polite" id="toast"></div>
   </body>
