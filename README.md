@@ -76,6 +76,20 @@ One flow connects the work to its permissions, price, and proof.
 
 <p align="center"><sub>Illustrated request flow · policy → quote → work → receipt</sub></p>
 
+## Models
+
+Chancery adds models in waves, so every model in the catalog has been checked against Office pricing, receipts and policy before your team can use it.
+
+**Wave 1 · Core** is live.
+
+| Model | Model ID | Maker |
+| :--- | :--- | :--- |
+| **GPT-6.1 Sol** | `gpt-6.1-sol` | OpenAI |
+| **Claude Sonnet 5.5** | `claude-sonnet-5.5` | Anthropic |
+| **Gemini 3.8 Flash** | `gemini-3.8-flash` | Google |
+
+Each Office can narrow this list further with its own model allowlist in Settings.
+
 ## Built for trust, down to the details
 
 Security lives in how your team signs in, how work is stored, who can approve a change, and how every charge is recorded.
