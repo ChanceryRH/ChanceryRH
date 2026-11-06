@@ -3682,3 +3682,21 @@ button.stat {
 .personal-use-cases { display: grid; gap: 12px; margin-top: 24px; }
 .personal-use-cases > span { display: grid; gap: 6px; padding: 14px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); font-size: 13px; }
 .personal-use-cases strong { color: var(--text); font-weight: 600; }
+
+/* Scoped AI connections */
+.mcp-connections { display: grid; gap: 20px; }
+.mcp-inline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mcp-inline input { flex: 1; min-width: 160px; }
+.mcp-form { margin-top: 22px; display: grid; gap: 18px; }
+.mcp-form-grid { display: grid; grid-template-columns: 1fr 180px; gap: 16px; }
+.mcp-permissions { border: 1px solid var(--border, #dce0e8); border-radius: 14px; padding: 18px; display: grid; gap: 14px; }
+.mcp-permissions legend { padding: 0 6px; font-weight: 600; }
+.mcp-permission { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; }
+.mcp-permission input { width: 18px; height: 18px; margin-top: 3px; flex: 0 0 18px; }
+.mcp-permission span { display: grid; gap: 4px; }
+.mcp-permission small { opacity: .75; line-height: 1.5; }
+.mcp-connection-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 18px 0; border-top: 1px solid var(--border, #dce0e8); }
+.mcp-connection-row > div:first-child { min-width: 0; }
+.mcp-prompt-snippet { max-width: 600px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin: 6px 0; }
+.mcp-review-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 340px; overflow: auto; padding: 18px; border: 1px solid var(--border, #dce0e8); border-radius: 12px; font: inherit; line-height: 1.6; }
+@media(max-width: 650px) { .mcp-form-grid { grid-template-columns: 1fr; } .mcp-connection-row { align-items: flex-start; flex-direction: column; } }

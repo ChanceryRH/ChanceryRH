@@ -26,6 +26,7 @@ import { createRooms } from "./rooms.ts";
 import { createClerks } from "./clerks.ts";
 import { createConversations } from "./conversations.ts";
 import { createUpdates } from "./updates.ts";
+import { createMcp } from "./mcp.ts";
 import { registerWeb } from "./web.ts";
 import { registerFeatures } from "./features/index.ts";
 export async function createApp(
@@ -49,6 +50,16 @@ export async function createApp(
     clerks = createClerks(db, cfg, chain, crypto, offices, ledger),
     updates = createUpdates(db, cfg, chain, crypto, offices, clerks);
   const conversations = createConversations(db, crypto);
+  const mcp = createMcp({
+    db,
+    cfg,
+    crypto,
+    offices,
+    ledger,
+    conversations,
+    clerks,
+    provider,
+  });
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", cfg.production ? 1 : false);
@@ -76,11 +87,18 @@ export async function createApp(
     if (req.method === "OPTIONS") {
       res.set({
         "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type,X-CSRF-Token",
+        "Access-Control-Allow-Headers":
+          req.path === "/mcp"
+            ? "Content-Type,Authorization,MCP-Protocol-Version,Accept"
+            : "Content-Type,X-CSRF-Token",
       });
       return res.status(204).end();
     }
-    if (!["GET", "HEAD"].includes(req.method) && origin !== cfg.origin)
+    if (
+      req.path !== "/mcp" &&
+      !["GET", "HEAD"].includes(req.method) &&
+      origin !== cfg.origin
+    )
       return next(
         new ApiError(
           403,
@@ -90,6 +108,7 @@ export async function createApp(
       );
     next();
   });
+  app.use("/mcp", mcp.router);
   const buckets = new Map<string, { count: number; until: number }>();
   app.use("/api", (req, res, next) => {
     const now = Date.now(),
@@ -261,6 +280,34 @@ export async function createApp(
   };
   const param = (req: Request, name: string) => String(req.params[name]);
   route("get", "", (a) => offices.get(a), undefined, true);
+  route("get", "/mcp/connections", (a) => mcp.list(a), "mcp");
+  route("post", "/mcp/connections", (a, r) => mcp.create(a, r.body), "mcp");
+  route(
+    "delete",
+    "/mcp/connections/:id",
+    (a, r) => mcp.revoke(a, param(r, "id")),
+    "mcp",
+  );
+  route("get", "/mcp/requests", (a) => mcp.drafts(a), "mcp");
+  route(
+    "post",
+    "/mcp/requests/:id/quote",
+    (a, r) => mcp.quote(a, param(r, "id")),
+    "mcp",
+  );
+  route(
+    "post",
+    "/mcp/requests/:id/approve",
+    (a, r) => mcp.approve(a, param(r, "id"), r.body),
+    "mcp",
+  );
+  route(
+    "post",
+    "/mcp/requests/:id/reject",
+    (a, r) => mcp.reject(a, param(r, "id")),
+    "mcp",
+  );
+
   route("get", "/seats", (a) => offices.seats(a), undefined, true);
   route(
     "post",

@@ -1,4 +1,5 @@
 export const UPDATES = [
+  { id: "mcp", name: "AI connections", dependencies: [] },
   { id: "rooms", name: "Encrypted Rooms", dependencies: [] },
   { id: "clerks", name: "AI Clerks", dependencies: [] },
   {

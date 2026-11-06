@@ -1,7 +1,7 @@
 import { scanSecrets } from "./secret-scan.ts";
 // Return only the category of sensitive content, never the matched value.
 const API_KEY =
-  /\bsk-ant-[A-Za-z0-9_-]{10,}\b|\bsk-[A-Za-z0-9_-]{10,}\b|\bghp_[A-Za-z0-9]{20,}\b|\bgithub_pat_[A-Za-z0-9_]{20,}\b|\bAKIA[A-Z0-9]{12,}\b|\bxox[bpa]-[A-Za-z0-9-]{10,}\b|\bAIza[A-Za-z0-9_-]{20,}\b/;
+  /\bch_mcp_[A-Za-z0-9_-]{43}|\bsk-ant-[A-Za-z0-9_-]{10,}\b|\bsk-[A-Za-z0-9_-]{10,}\b|\bghp_[A-Za-z0-9]{20,}\b|\bgithub_pat_[A-Za-z0-9_]{20,}\b|\bAKIA[A-Z0-9]{12,}\b|\bxox[bpa]-[A-Za-z0-9-]{10,}\b|\bAIza[A-Za-z0-9_-]{20,}\b/;
 export function checkGuards(
   ...text: string[]
 ): { kind: string; message: string } | null {

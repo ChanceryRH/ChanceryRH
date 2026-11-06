@@ -27,10 +27,12 @@
     "package:app": "node --import tsx scripts/package-backend.ts",
     "test:ui": "node --import tsx tests/ui-server.ts",
     "deployment:verify": "node --import tsx scripts/verify-deployment.ts",
-    "test:coverage": "c8 --all --include=\"server/**/*.ts\" --include=\"shared/**/*.ts\" --include=\"packages/client/**/*.ts\" --exclude=\"**/*.d.ts\" --exclude=\"server/index.ts\" --exclude=\"server/worker.ts\" --exclude=\"server/migrate.ts\" --reporter=text --reporter=json-summary node --import tsx --test tests/*.test.ts"
+    "test:coverage": "c8 --all --include=\"server/**/*.ts\" --include=\"shared/**/*.ts\" --include=\"packages/client/**/*.ts\" --exclude=\"**/*.d.ts\" --exclude=\"server/index.ts\" --exclude=\"server/worker.ts\" --exclude=\"server/migrate.ts\" --reporter=text --reporter=json-summary node --import tsx --test tests/*.test.ts",
+    "mcp:bridge": "node --import tsx scripts/mcp-bridge.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.8",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@simplewebauthn/browser": "14.0.0",
     "@simplewebauthn/server": "14.0.3",
     "cookie-parser": "1.4.7",
@@ -57,14 +59,14 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "5.0.4",
+    "c8": "10.1.3",
     "concurrently": "10.0.6",
     "prettier": "3.6.2",
     "railway": "3.16.0",
     "solc": "0.8.38",
     "supertest": "7.2.2",
     "typescript": "7.0.2",
-    "vite": "6.4.5",
-    "c8": "10.1.3"
+    "vite": "6.4.5"
   },
   "overrides": {
     "tmp": "^0.2.6"

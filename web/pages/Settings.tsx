@@ -1,26 +1,40 @@
+import { Connections } from "./Connections";
 import { useState } from "react";
 import { Info } from "lucide-react";
 import { useOffice } from "../App";
 import { api, money, short } from "../api";
-import { Button, Feedback, Field, Modal, Panel, submit, useAction } from "../ui";
+import {
+  Button,
+  Feedback,
+  Field,
+  Modal,
+  Panel,
+  submit,
+  useAction,
+} from "../ui";
 import { Pill, Progress, SidePanel, SideItem, SideSection } from "../shell";
 
 const sections = [
   ["budget", "Allowance & caps"],
   ["models", "Models & privacy"],
   ["safe", "Safe"],
+  ["connections", "AI connections"],
   ["danger", "Close Office"],
 ] as const;
 
 export function Settings() {
-  const { office, onProposal, models } = useOffice(),
+  const { office, onProposal, models, config } = useOffice(),
     action = useAction(),
     [section, setSection] = useState<(typeof sections)[number][0]>("budget"),
     [cap, setCap] = useState(office.capUsd),
     [maximum, setMaximum] = useState(office.policy.maxRequestUsd),
     [allowed, setAllowed] = useState<string[]>(office.policy.allowedModels),
-    [zero, setZero] = useState(office.policy.allowedLanes.includes("zero_retention")),
-    [standard, setStandard] = useState(office.policy.allowedLanes.includes("standard")),
+    [zero, setZero] = useState(
+      office.policy.allowedLanes.includes("zero_retention"),
+    ),
+    [standard, setStandard] = useState(
+      office.policy.allowedLanes.includes("standard"),
+    ),
     [closing, setClosing] = useState(false),
     [confirmName, setConfirmName] = useState("");
   const editable = office.role === "principal" && office.status === "active";
@@ -35,12 +49,15 @@ export function Settings() {
   const isOn = (id: string) => allowAll || allowed.includes(id);
   function toggle(id: string) {
     const current = allowAll ? catalog.map((m) => m.id) : allowed;
-    const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id];
+    const next = current.includes(id)
+      ? current.filter((x) => x !== id)
+      : [...current, id];
     setAllowed(next.length === catalog.length ? [] : next);
   }
   const policyChanged =
     maximum !== office.policy.maxRequestUsd ||
-    [...allowed].sort().join() !== [...office.policy.allowedModels].sort().join() ||
+    [...allowed].sort().join() !==
+      [...office.policy.allowedModels].sort().join() ||
     standard !== office.policy.allowedLanes.includes("standard") ||
     zero !== office.policy.allowedLanes.includes("zero_retention");
   const capNum = Number(office.capUsd) || 0,
@@ -49,9 +66,20 @@ export function Settings() {
     <>
       <SidePanel title="Settings">
         <SideSection>
-          {sections.map(([id, label]) => (
-            <SideItem key={id} active={section === id} title={label} onClick={() => setSection(id)} />
-          ))}
+          {sections
+            .filter(
+              ([id]) =>
+                id !== "connections" ||
+                config.updates.some((u) => u.id === "mcp" && u.enabled),
+            )
+            .map(([id, label]) => (
+              <SideItem
+                key={id}
+                active={section === id}
+                title={label}
+                onClick={() => setSection(id)}
+              />
+            ))}
         </SideSection>
       </SidePanel>
       <header className="page-head">
@@ -62,23 +90,29 @@ export function Settings() {
               ? "The Office allowance shared by seats and Clerks."
               : section === "models"
                 ? "Which models your Office may use, and how requests are processed."
-                : section === "safe"
-                  ? "The Safe that funds and governs this Office."
-                  : "Permanently close this Office."}
+                : section === "connections"
+                  ? "Connect your AI tools with scoped access and human approval."
+                  : section === "safe"
+                    ? "The Safe that funds and governs this Office."
+                    : "Permanently close this Office."}
           </p>
         </div>
       </header>
-      <div className="notice">
-        <Info size={16} />
-        <span>
-          Every change here becomes a Safe proposal and needs{" "}
-          {office.owners.length === 1
-            ? "its owner’s signature."
-            : `${office.threshold} of ${office.owners.length} owner signatures.`}
-          {!editable && " Only Safe owners can propose changes while the Office is active."}
-        </span>
-      </div>
+      {section !== "connections" && (
+        <div className="notice">
+          <Info size={16} />
+          <span>
+            Every change here becomes a Safe proposal and needs{" "}
+            {office.owners.length === 1
+              ? "its owner’s signature."
+              : `${office.threshold} of ${office.owners.length} owner signatures.`}
+            {!editable &&
+              " Only Safe owners can propose changes while the Office is active."}
+          </span>
+        </div>
+      )}
       <Feedback action={action} />
+      {section === "connections" && <Connections key={office.id} />}
       {section === "budget" && (
         <>
           <Panel className="card">
@@ -90,7 +124,8 @@ export function Settings() {
               <div className="card-figure">
                 <strong>{money(capNum)} USDG</strong>
                 <small>
-                  {money(spent)} spent · {money(Math.max(0, capNum - spent))} available
+                  {money(spent)} spent · {money(Math.max(0, capNum - spent))}{" "}
+                  available
                 </small>
               </div>
             </div>
@@ -101,12 +136,17 @@ export function Settings() {
               className="inline-form"
               onSubmit={submit(() =>
                 action.run(async () => {
-                  await api.office(office.id, "/cap/propose", { monthlyCap: cap });
+                  await api.office(office.id, "/cap/propose", {
+                    monthlyCap: cap,
+                  });
                   await onProposal();
                 }),
               )}
             >
-              <Field label="New allowance · USDG per 30 days" help="Maximum 5,000 USDG.">
+              <Field
+                label="New allowance · USDG per 30 days"
+                help="Maximum 5,000 USDG."
+              >
                 <input
                   disabled={!editable}
                   type="number"
@@ -118,7 +158,11 @@ export function Settings() {
                   onChange={(e) => setCap(e.target.value)}
                 />
               </Field>
-              <Button type="submit" disabled={!editable || cap === office.capUsd} busy={action.busy}>
+              <Button
+                type="submit"
+                disabled={!editable || cap === office.capUsd}
+                busy={action.busy}
+              >
                 Propose change
               </Button>
             </form>
@@ -132,7 +176,10 @@ export function Settings() {
               await api.office(office.id, "/policy/propose", {
                 mandatoryGuards: true,
                 allowedModels: allowed,
-                allowedLanes: [...(standard ? ["standard"] : []), ...(zero ? ["zero_retention"] : [])],
+                allowedLanes: [
+                  ...(standard ? ["standard"] : []),
+                  ...(zero ? ["zero_retention"] : []),
+                ],
                 maxRequestUsd: maximum,
               });
               await onProposal();
@@ -150,7 +197,11 @@ export function Settings() {
                 </p>
               </div>
               {!allowAll && editable && (
-                <button type="button" className="link" onClick={() => setAllowed([])}>
+                <button
+                  type="button"
+                  className="link"
+                  onClick={() => setAllowed([])}
+                >
                   Allow all
                 </button>
               )}
@@ -163,16 +214,26 @@ export function Settings() {
                       {m.name}
                       <small>{m.id}</small>
                     </span>
-                    <Pill tone={isOn(m.id) ? "green" : ""}>{isOn(m.id) ? "Allowed" : "Off"}</Pill>
+                    <Pill tone={isOn(m.id) ? "green" : ""}>
+                      {isOn(m.id) ? "Allowed" : "Off"}
+                    </Pill>
                     <span className="switch">
-                      <input type="checkbox" disabled={!editable} checked={isOn(m.id)} onChange={() => toggle(m.id)} />
+                      <input
+                        type="checkbox"
+                        disabled={!editable}
+                        checked={isOn(m.id)}
+                        onChange={() => toggle(m.id)}
+                      />
                       <span aria-hidden="true" />
                     </span>
                   </label>
                 ))}
               </div>
             ) : (
-              <p className="card-empty">The model catalog is unavailable. Refresh the Office and try again.</p>
+              <p className="card-empty">
+                The model catalog is unavailable. Refresh the Office and try
+                again.
+              </p>
             )}
           </Panel>
           <Panel className="card">
@@ -202,7 +263,12 @@ export function Settings() {
                   <small>Messages are sent to the chosen provider.</small>
                 </span>
                 <span className="switch">
-                  <input type="checkbox" disabled={!editable} checked={standard} onChange={(e) => setStandard(e.target.checked)} />
+                  <input
+                    type="checkbox"
+                    disabled={!editable}
+                    checked={standard}
+                    onChange={(e) => setStandard(e.target.checked)}
+                  />
                   <span aria-hidden="true" />
                 </span>
               </label>
@@ -212,15 +278,28 @@ export function Settings() {
                   <small>When available. Response content is not stored.</small>
                 </span>
                 <span className="switch">
-                  <input type="checkbox" disabled={!editable} checked={zero} onChange={(e) => setZero(e.target.checked)} />
+                  <input
+                    type="checkbox"
+                    disabled={!editable}
+                    checked={zero}
+                    onChange={(e) => setZero(e.target.checked)}
+                  />
                   <span aria-hidden="true" />
                 </span>
               </label>
             </div>
           </Panel>
           <div className="action-bar">
-            <span className="muted">{policyChanged ? "Unsaved changes become a Safe proposal." : "No changes."}</span>
-            <Button type="submit" disabled={!editable || !policyChanged || (!standard && !zero)} busy={action.busy}>
+            <span className="muted">
+              {policyChanged
+                ? "Unsaved changes become a Safe proposal."
+                : "No changes."}
+            </span>
+            <Button
+              type="submit"
+              disabled={!editable || !policyChanged || (!standard && !zero)}
+              busy={action.busy}
+            >
               Propose policy change
             </Button>
           </div>
@@ -260,7 +339,9 @@ export function Settings() {
             <div>
               <dt>Allowance module</dt>
               <dd>
-                <Pill tone={office.moduleEnabled ? "green" : "amber"}>{office.moduleEnabled ? "Enabled" : "Needs attention"}</Pill>
+                <Pill tone={office.moduleEnabled ? "green" : "amber"}>
+                  {office.moduleEnabled ? "Enabled" : "Needs attention"}
+                </Pill>
               </dd>
             </div>
             <div>
@@ -274,15 +355,25 @@ export function Settings() {
         <Panel className="card danger-card">
           <div>
             <h2>Close this Office</h2>
-            <p>Closure is permanent and stops all spending delegates. Export any records you need first.</p>
+            <p>
+              Closure is permanent and stops all spending delegates. Export any
+              records you need first.
+            </p>
           </div>
-          <Button kind="danger" disabled={!editable} onClick={() => setClosing(true)}>
+          <Button
+            kind="danger"
+            disabled={!editable}
+            onClick={() => setClosing(true)}
+          >
             Close Office
           </Button>
         </Panel>
       )}
       {closing && (
-        <Modal title="Close this Office permanently?" close={() => setClosing(false)}>
+        <Modal
+          title="Close this Office permanently?"
+          close={() => setClosing(false)}
+        >
           <form
             onSubmit={submit(() =>
               action.run(async () => {
@@ -293,14 +384,24 @@ export function Settings() {
             )}
           >
             <p className="muted">
-              This prepares a Safe proposal. Closing becomes permanent when the owners execute it, and stops collection of
-              outstanding settlements.
+              This prepares a Safe proposal. Closing becomes permanent when the
+              owners execute it, and stops collection of outstanding
+              settlements.
             </p>
             <Field label={`Type “${office.name}” to continue`}>
-              <input value={confirmName} onChange={(e) => setConfirmName(e.target.value)} autoComplete="off" />
+              <input
+                value={confirmName}
+                onChange={(e) => setConfirmName(e.target.value)}
+                autoComplete="off"
+              />
             </Field>
             <Feedback action={action} />
-            <Button kind="danger" type="submit" disabled={confirmName !== office.name} busy={action.busy}>
+            <Button
+              kind="danger"
+              type="submit"
+              disabled={confirmName !== office.name}
+              busy={action.busy}
+            >
               Prepare permanent closure
             </Button>
           </form>

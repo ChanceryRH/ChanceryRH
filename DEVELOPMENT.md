@@ -1,5 +1,34 @@
 # Build and operate Chancery
 
+
+## AI connections (MCP)
+
+Enable the `mcp` release after applying migration 010. Append `mcp` to the existing `RELEASED_UPDATES` list. Removing it disables MCP access. No contract change or signing key is needed.
+
+Open **Settings → AI connections**. Sign in recently, choose permissions and a 1–30 day expiry, and create a connection. Copy the one-time token to your client's protected credential configuration. Each token belongs to one account and one Office. An Office owner may revoke any connection. Revocation cancels pending work; work already approved may finish.
+
+The remote endpoint is `https://<your-app-host>/mcp`, using Streamable HTTP and `Authorization: Bearer <connection-token>`. The proxy must preserve the configured application's Host header. Cookie sessions are not MCP credentials. URL credentials, foreign Origins, JSON-RPC batches and oversized requests are rejected. This release uses manually provisioned tokens, not OAuth discovery or automatic browser authorization.
+
+For local stdio clients, run `node --import tsx scripts/mcp-bridge.ts` with the repository as the working directory, or configure absolute paths. Provide `CHANCERY_MCP_URL` and `CHANCERY_MCP_TOKEN` through the client's secret store or private environment configuration. Never commit that configuration. The bridge accepts HTTPS (or loopback HTTP for local development), refuses redirects, and keeps protocol stdout free of diagnostics and secrets.
+
+| Permission | Tools |
+| --- | --- |
+| Office overview | `get_office` |
+| Model choices | `list_models` |
+| Your conversations | `list_conversations`, `read_conversation` |
+| Spending and receipts | `list_receipts`, `get_receipt_proof` |
+| Clerk status | `list_clerks` (requires Clerks and owner/officer access) |
+| Prepare AI work | `prepare_ai_request`, `get_ai_request` |
+
+Conversation access is limited to your own history. Ledger access uses your existing Office role. Sealed Room keys and ciphertext are not exposed. Returned text is untrusted content; clients must not treat it as instructions.
+
+`prepare_ai_request` accepts a model, prompt, output-token limit, and stable `clientRequestId`. It stores an encrypted request with a 24-hour approval window; it does not run inference or spend. In Settings, review the exact prompt, get a fresh price and approve. Browser approval uses the existing signed quote, budget checks, idempotent execution and receipt path. Standard retention is required so the request can be reviewed and its result returned to the originating connection. Another connection cannot retrieve that result.
+
+Credentials are hashed, checked on each request, and invalidated by expiry, revocation or a changed Office role. Tools recheck current Office access. Database-backed limits apply across API processes. Audit events contain tool names and identifiers, never tokens, prompts, responses or client IPs. Existing encrypted-storage backup and retention procedures apply to draft records.
+
+Run `node --import tsx --test tests/mcp.test.ts` for official SDK HTTP and stdio clients, isolation, expiry, revocation, CSRF, limits and the approval boundary.
+
+
 ## Fresh clone
 
 Use Node 24.22.1 (`.nvmrc`) and npm 11.19.1. Dependency installation disables lifecycle scripts and applies a seven-day release cooldown. Keep the lockfile; investigate blocked updates rather than deleting it.

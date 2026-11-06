@@ -10,7 +10,7 @@ import { createJobs } from "../server/jobs.ts";
 if (process.env.NODE_ENV === "production")
   throw new Error("The browser fixture cannot run in production.");
 const runtime = await fixture(
-  "rooms,clerks,safe_drafts,minutes,token_benefits,playbooks,side_by_side,guest_passes,reimbursements,office_files",
+  "rooms,clerks,safe_drafts,minutes,token_benefits,mcp,playbooks,side_by_side,guest_passes,reimbursements,office_files",
 );
 const port = Number(process.env.UI_PORT || 5181);
 runtime.cfg.origin = `http://localhost:${port}`;
