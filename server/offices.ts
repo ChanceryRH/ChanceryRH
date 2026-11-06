@@ -234,7 +234,9 @@ export function createOffices(
     payload: unknown,
   ) {
     assert(
-      a.role === "principal" || (kind === "safe_draft" && a.role === "officer"),
+      a.role === "principal" ||
+        (["safe_draft", "reimbursement"].includes(kind) &&
+          a.role === "officer"),
       403,
       "principal_required",
       "A Safe owner must prepare this change.",
@@ -877,6 +879,14 @@ export function createOffices(
         q.query(
           "UPDATE clerks SET status='active',delegate=$1,next_run_at=now() WHERE id=$2",
           [cs.delegate, p.payload.clerkId],
+        ),
+      );
+    } else if (p.kind === "reimbursement") {
+      // Only the Reimbursements update proposes this kind; mark its requests paid.
+      await db.office(a.office.id, (q) =>
+        q.query(
+          "UPDATE reimbursements SET status='paid',proposal_id=$1,tx_hash=$2,paid_at=now() WHERE status='approved' AND id IN (SELECT jsonb_array_elements_text($3::jsonb))",
+          [id, txHash, JSON.stringify(p.payload.reimbursementIds || [])],
         ),
       );
     }

@@ -405,6 +405,14 @@ export function simulateChain(
         );
     }
   }
+  // Local stand-in for eth_call simulation: the fixture has no node to call.
+  chain.simulateCall = async (_safe: Address, _call: unknown) => ({
+    success: true,
+    returnData: "0x",
+    method: "simulated",
+    stateDiff: null,
+    limitations: ["Local test chain: the call was not simulated against real state."],
+  });
   return { wallet };
 }
 

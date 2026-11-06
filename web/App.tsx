@@ -17,7 +17,11 @@ import {
 import {
   ArrowUpRight,
   AudioLines,
+  BookOpen,
   Building2,
+  Columns2,
+  FolderLock,
+  HandCoins,
   ChevronDown,
   CircleCheck,
   Fingerprint,
@@ -36,6 +40,7 @@ import {
   ShieldCheck,
   Sparkle,
   Sparkles,
+  Ticket,
   Users,
   Wallet as WalletIcon,
 } from "lucide-react";
@@ -101,6 +106,21 @@ const ClerksPage = lazy(() =>
 const RoomsPage = lazy(() =>
   import("./pages/Updates").then((module) => ({ default: module.RoomsRoute })),
 );
+const PlaybooksPage = lazy(() =>
+  import("./pages/Updates").then((module) => ({ default: module.PlaybooksRoute })),
+);
+const ComparePage = lazy(() =>
+  import("./pages/Updates").then((module) => ({ default: module.CompareRoute })),
+);
+const GuestPassesPage = lazy(() =>
+  import("./pages/Updates").then((module) => ({ default: module.GuestPassesRoute })),
+);
+const ReimbursementsPage = lazy(() =>
+  import("./pages/Updates").then((module) => ({ default: module.ReimbursementsRoute })),
+);
+const OfficeFilesPage = lazy(() =>
+  import("./pages/Updates").then((module) => ({ default: module.OfficeFilesRoute })),
+);
 export type Context = {
   account: Account;
   config: AppConfig;
@@ -124,9 +144,25 @@ const routes = [
   ["people", "People", Users],
   ["clerks", "Clerks", Sparkle],
   ["rooms", "Rooms", LockKeyhole],
+  ["playbooks", "Playbooks", BookOpen],
+  ["compare", "Side by Side", Columns2],
+  ["files", "Office Files", FolderLock],
+  ["reimbursements", "Reimbursements", HandCoins],
+  ["guests", "Guest Passes", Ticket],
   ["updates", "More", Sparkles],
   ["settings", "Settings", Settings],
 ] as const;
+// Pages for updates that are hidden from navigation until the deployment releases them.
+const releasedPages: Record<string, string> = {
+  playbooks: "playbooks",
+  compare: "side_by_side",
+  files: "office_files",
+  reimbursements: "reimbursements",
+  guests: "guest_passes",
+};
+const shownRoute = (id: string, config: AppConfig | null) =>
+  !releasedPages[id] ||
+  !!config?.updates.some((u) => u.id === releasedPages[id] && u.enabled);
 const pageFromHash = () => {
   const value = location.hash.replace(/^#\/?/, "").split("?")[0];
   return routes.some((r) => r[0] === value) ? value : "overview";
@@ -356,7 +392,7 @@ export function App() {
       : null;
   const commands: Command[] = context
     ? [
-        ...routes.map(([id, label]) => ({
+        ...routes.filter(([id]) => shownRoute(id, config)).map(([id, label]) => ({
           id: `go:${id}`,
           label: `Go to ${label}`,
           hint: "Page",
@@ -384,7 +420,7 @@ export function App() {
             <img src="/app/brand/mark-ink.svg" alt="" />
           </a>
           <div className="rail-items">
-            {routes.map(([id, label, Icon]) => (
+            {routes.filter(([id]) => shownRoute(id, config)).map(([id, label, Icon]) => (
               <button
                 key={id}
                 className={`rail-item ${page === id ? "active" : ""} ${id === "settings" ? "pinned" : ""}`}
@@ -656,6 +692,16 @@ export function App() {
                         <ClerksPage />
                       ) : page === "rooms" ? (
                         <RoomsPage />
+                      ) : page === "playbooks" ? (
+                        <PlaybooksPage />
+                      ) : page === "compare" ? (
+                        <ComparePage />
+                      ) : page === "files" ? (
+                        <OfficeFilesPage />
+                      ) : page === "reimbursements" ? (
+                        <ReimbursementsPage />
+                      ) : page === "guests" ? (
+                        <GuestPassesPage />
                       ) : (
                         <Updates />
                       )}

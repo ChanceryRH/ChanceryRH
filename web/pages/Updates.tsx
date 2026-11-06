@@ -2,13 +2,18 @@ import React, { useEffect, useState } from "react";
 import { formatUnits, keccak256, toBytes } from "viem";
 import {
   ArrowUpRight,
+  BookOpen,
   Bot,
+  Columns2,
   FileCheck2,
+  FolderLock,
   Gift,
+  HandCoins,
   LockKeyhole,
   Plus,
   ShieldCheck,
   Sparkles,
+  Ticket,
 } from "lucide-react";
 import { useOffice } from "../App";
 import { api, date, download, money } from "../api";
@@ -29,6 +34,11 @@ import {
 import { Clerks } from "./Clerks";
 import { Pill, SidePanel, SideItem, SideSection } from "../shell";
 import { Rooms } from "./Rooms";
+import { Playbooks } from "./Playbooks";
+import { Compare } from "./Compare";
+import { GuestPasses } from "./GuestPasses";
+import { Reimbursements } from "./Reimbursements";
+import { OfficeFiles } from "./OfficeFiles";
 const descriptions: Record<string, { icon: typeof Bot; text: string }> = {
   rooms: {
     icon: LockKeyhole,
@@ -49,6 +59,26 @@ const descriptions: Record<string, { icon: typeof Bot; text: string }> = {
   token_benefits: {
     icon: Gift,
     text: "Eligible Office holdings unlock platform and seat-fee discounts and roadmap voting.",
+  },
+  playbooks: {
+    icon: BookOpen,
+    text: "Run approved AI tasks in one click, each with a set model and a fixed price ceiling.",
+  },
+  side_by_side: {
+    icon: Columns2,
+    text: "Ask several models the same question and compare answers, prices and receipts.",
+  },
+  guest_passes: {
+    icon: Ticket,
+    text: "Give a contractor or advisor time-limited access with its own AI budget.",
+  },
+  reimbursements: {
+    icon: HandCoins,
+    text: "Turn a receipt into a payment request your Safe owners can approve and sign.",
+  },
+  office_files: {
+    icon: FolderLock,
+    text: "Keep encrypted reference files your team can ask AI about, with answers that cite them.",
   },
 };
 function Gate({
@@ -108,6 +138,11 @@ const routed: Record<string, string> = {
   rooms: "rooms",
   clerks: "clerks",
   safe_drafts: "clerks?draft",
+  playbooks: "playbooks",
+  side_by_side: "compare",
+  guest_passes: "guests",
+  reimbursements: "reimbursements",
+  office_files: "files",
 };
 export function ClerksRoute() {
   return (
@@ -120,6 +155,41 @@ export function RoomsRoute() {
   return (
     <Gate id="rooms" title="Rooms">
       <Rooms />
+    </Gate>
+  );
+}
+export function PlaybooksRoute() {
+  return (
+    <Gate id="playbooks" title="Playbooks">
+      <Playbooks />
+    </Gate>
+  );
+}
+export function CompareRoute() {
+  return (
+    <Gate id="side_by_side" title="Side by Side">
+      <Compare />
+    </Gate>
+  );
+}
+export function GuestPassesRoute() {
+  return (
+    <Gate id="guest_passes" title="Guest Passes">
+      <GuestPasses />
+    </Gate>
+  );
+}
+export function ReimbursementsRoute() {
+  return (
+    <Gate id="reimbursements" title="Reimbursements">
+      <Reimbursements />
+    </Gate>
+  );
+}
+export function OfficeFilesRoute() {
+  return (
+    <Gate id="office_files" title="Office Files">
+      <OfficeFiles />
     </Gate>
   );
 }
@@ -168,7 +238,7 @@ export function Updates() {
       ) : (
         <>
           <PageTitle title="Updates">
-            Five additions to the Office. Your deployment decides which are on.
+            Additions to the Office. Your deployment decides which are on.
           </PageTitle>
           <div className="updates-grid">
             {config.updates.map((u) => {

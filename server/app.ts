@@ -6,7 +6,7 @@ import express, {
 import { privateKeyToAccount } from "viem/accounts";
 import cookieParser from "cookie-parser";
 import { ZodError } from "zod";
-import { UPDATES, type UpdateId } from "../shared/releases.ts";
+import { UPDATES, listedUpdate, type UpdateId } from "../shared/releases.ts";
 import { ADDRESSES } from "../shared/chain.ts";
 import { ApiError, assert } from "./errors.ts";
 import { registerAuth } from "./auth.ts";
@@ -27,6 +27,7 @@ import { createClerks } from "./clerks.ts";
 import { createConversations } from "./conversations.ts";
 import { createUpdates } from "./updates.ts";
 import { registerWeb } from "./web.ts";
+import { registerFeatures } from "./features/index.ts";
 export async function createApp(
   deps: {
     cfg?: Config;
@@ -161,7 +162,14 @@ export async function createApp(
       registry: cfg.registry || null,
       token: cfg.tokenAddress || null,
       addresses: ADDRESSES,
-      updates: UPDATES.map((u) => ({ ...u, enabled: cfg.released.has(u.id) })),
+      updates: UPDATES.filter(
+        (u) => listedUpdate(u) || cfg.released.has(u.id),
+      ).map(({ id, name, dependencies }) => ({
+        id,
+        name,
+        dependencies,
+        enabled: cfg.released.has(id),
+      })),
       aiProvider: "PROVIDER",
       privacy: {
         standard:
@@ -502,6 +510,20 @@ export async function createApp(
     (a, r) => updates.vote(a, r.body),
     "token_benefits",
   );
+  registerFeatures({
+    app,
+    route,
+    param,
+    db,
+    cfg,
+    chain,
+    crypto,
+    provider,
+    offices,
+    ledger,
+    clerks,
+    conversations,
+  });
   app.use((_req, _res, next) =>
     next(new ApiError(404, "not_found", "Endpoint not found.")),
   );

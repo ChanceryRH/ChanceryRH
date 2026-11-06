@@ -29,6 +29,7 @@ const titles: Record<string, string> = {
   clerk: "Authorize a Clerk",
   safe_draft: "Review transaction draft",
   revoke: "Revoke a Clerk",
+  reimbursement: "Pay reimbursements",
 };
 export function Proposals() {
   const { office, account, provider, refresh, reloadApprovals } = useOffice(),
@@ -143,8 +144,17 @@ export function Proposals() {
   const needed = execution?.threshold ?? office.threshold;
   const have = execution?.signatures.length ?? 0;
   const params = Object.entries(detail?.payload || {}).filter(
-    ([k, v]) => k !== "calls" && v !== null && v !== undefined && v !== "",
+    ([k, v]) =>
+      k !== "calls" &&
+      !(detail?.kind === "reimbursement" && k === "payments") &&
+      v !== null &&
+      v !== undefined &&
+      v !== "",
   );
+  const payments: { to: string; amountUsdg: string; category: string }[] =
+    detail?.kind === "reimbursement" && Array.isArray(detail.payload?.payments)
+      ? detail.payload.payments
+      : [];
   return (
     <>
       <SidePanel title="Approvals">
@@ -294,6 +304,30 @@ export function Proposals() {
               </div>
             </dl>
           </Panel>
+          {payments.length > 0 && (
+            <Panel className="card">
+              <div className="card-head">
+                <h2>USDG payments</h2>
+                <span className="muted">
+                  {detail.payload.totalUsdg} USDG to member wallets
+                </span>
+              </div>
+              <table className="table">
+                <tbody>
+                  {payments.map((p, i) => (
+                    <tr key={i}>
+                      <td className="who">
+                        <Monogram value={p.to} />
+                        <code>{p.to}</code>
+                      </td>
+                      <td>{p.category}</td>
+                      <td className="num">{p.amountUsdg} USDG</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Panel>
+          )}
           <Panel className="card hash-card">
             <span>Safe transaction hash to sign</span>
             <code>{detail.safe_tx_hash}</code>

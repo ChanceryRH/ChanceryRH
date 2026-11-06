@@ -8,7 +8,16 @@ export const UPDATES = [
   },
   { id: "minutes", name: "Signed Minutes", dependencies: [] },
   { id: "token_benefits", name: "Token-holder benefits", dependencies: [] },
+  // Unlisted updates stay out of /api/config until they are released.
+  { id: "playbooks", name: "Playbooks", dependencies: [], listed: false },
+  { id: "side_by_side", name: "Side by Side", dependencies: [], listed: false },
+  { id: "guest_passes", name: "Guest Passes", dependencies: [], listed: false },
+  { id: "reimbursements", name: "Reimbursements", dependencies: [], listed: false },
+  { id: "office_files", name: "Office Files", dependencies: [], listed: false },
 ] as const;
+export function listedUpdate(update: (typeof UPDATES)[number]) {
+  return !("listed" in update) || update.listed !== false;
+}
 export type UpdateId = (typeof UPDATES)[number]["id"];
 export function releasedUpdates(value = ""): Set<UpdateId> {
   const requested = value
