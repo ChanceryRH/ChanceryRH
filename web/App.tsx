@@ -69,6 +69,8 @@ import {
   useAction,
 } from "./ui";
 import { Overview } from "./pages/Overview";
+import { PersonalWorkspace, personalSetup } from "./PersonalWorkspace";
+import { PersonalFunding } from "./PersonalFunding";
 import {
   resolvedTheme,
   saveTheme,
@@ -142,6 +144,7 @@ export function App() {
     [mobile, setMobile] = useState(false),
     [picker, setPicker] = useState(false),
     [creation, setCreation] = useState(false),
+    [personalFunding, setPersonalFunding] = useState(false),
     [joining, setJoining] = useState(false),
     [selected, setSelected] = useState(""),
     [chatKey, setChatKey] = useState(0),
@@ -370,7 +373,9 @@ export function App() {
         { id: "theme-system", label: "Match system appearance", hint: "Appearance", run: () => setTheme("system") },
       ]
     : [];
-  const showRail = !!context;
+  const pendingPersonal = account ? personalSetup(account.id) : null;
+  const needsPersonalFunding = !!pendingPersonal && !pendingPersonal.complete;
+  const showRail = !!context && !needsPersonalFunding;
   return (
     <div className={`app-shell ${showRail ? "" : "bare"} ${mobile ? "side-open" : ""}`}>
       {showRail && (
@@ -477,7 +482,7 @@ export function App() {
                 <span className="switcher-mark">
                   {office?.name.slice(0, 1) || <Building2 size={14} />}
                 </span>
-                <span className="switcher-name">{office?.name || "Choose an Office"}</span>
+                <span className="switcher-name">{office?.name || (!offices.length ? "Personal workspace" : "Choose an Office")}</span>
                 <ChevronDown size={15} />
               </button>
               {picker && (
@@ -527,6 +532,9 @@ export function App() {
               <Button kind="secondary" onClick={() => walletConnect.current?.()}>
                 <WalletIcon size={15} /> Connect wallet
               </Button>
+            )}
+            {account?.wallet && office && !needsPersonalFunding && office.threshold === 1 && office.owners.length === 1 && office.owners[0].toLowerCase() === account.wallet.toLowerCase() && (
+              <Button kind="secondary" onClick={() => setPersonalFunding(true)}><WalletIcon size={15} /> Add USDG</Button>
             )}
             {account?.wallet && !provider && (
               <Button
@@ -619,53 +627,10 @@ export function App() {
                 setProvider={setProvider}
                 walletConnect={walletConnect}
               />
-            ) : account && config && !selected ? (
-              <div className="start">
-                <PageTitle title="Start your Office">
-                  Open an Office for your team from an existing Safe, or join one
-                  you’ve been invited to.
-                </PageTitle>
-                <div className="start-grid">
-                  <Panel>
-                    <Building2 size={22} />
-                    <h2>Open an Office</h2>
-                    <p>
-                      Connect an existing Safe, choose a budget and invite your
-                      team.
-                    </p>
-                    <Button
-                      onClick={() => setCreation(true)}
-                      disabled={!account.wallet || !config.registry}
-                    >
-                      Open an Office
-                      <Plus size={15} />
-                    </Button>
-                    {!account.wallet && (
-                      <small>
-                        Sign in with a Safe owner wallet to open an Office.
-                      </small>
-                    )}
-                    {!config.registry && (
-                      <small>
-                        Office creation will be available when network setup is
-                        complete.
-                      </small>
-                    )}
-                  </Panel>
-                  <Panel>
-                    <Users size={22} />
-                    <h2>Join an Office</h2>
-                    <p>
-                      Have an invitation? Join with your wallet or passkey. Your
-                      Safe owners approve access.
-                    </p>
-                    <Button kind="secondary" onClick={() => setJoining(true)}>
-                      Join an Office
-                      <ArrowUpRight size={15} />
-                    </Button>
-                  </Panel>
-                </div>
-              </div>
+            ) : account && config && (!selected || needsPersonalFunding) ? (
+              <PersonalWorkspace account={account} config={config} models={models} provider={provider} setProvider={setProvider}
+                ready={async id => { await loadOffices(id); navigate("chat"); }}
+                openTeam={() => setCreation(true)} joinTeam={() => setJoining(true)} />
             ) : context ? (
               <OfficeContext.Provider value={context}>
                 <PanelHostProvider value={panelHost}>
@@ -707,6 +672,7 @@ export function App() {
           </main>
         </div>
       </div>
+      {personalFunding && account && office && <PersonalFunding account={account} office={office} provider={provider} setProvider={setProvider} close={() => setPersonalFunding(false)} refresh={refresh} />}
       {creation && config && account && (
         <CreateOffice
           config={config}

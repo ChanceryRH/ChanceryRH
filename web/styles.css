@@ -3662,3 +3662,23 @@ button.stat {
     opacity: 1;
   }
 }
+
+.personal-workspace { max-width: 1120px; margin: 35px auto; padding: 24px; }
+.personal-heading { margin-bottom: 32px; }
+.personal-heading h1 { font-size: clamp(28px, 3.3vw, 44px); letter-spacing: -.04em; margin: 14px 0; }
+.personal-heading p, .personal-grid p { color: var(--muted); line-height: 1.65; }
+.personal-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 24px; }
+.personal-grid .panel { padding: 28px; }
+.personal-grid h2 { margin: 16px 0 12px; }
+.personal-models { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0; }
+.personal-models > span { border: 1px solid var(--line); padding: 10px 12px; border-radius: 9px; font-size: 13px; }
+.personal-funding .field { margin: 22px 0 14px; }
+.personal-funding > .button { width: 100%; margin-top: 12px; }
+.personal-wallet-note { display: block; color: var(--muted); margin-top: 18px; line-height: 1.6; }
+.personal-progress { display: flex; align-items: center; gap: 8px; margin: 18px 0; }
+.personal-team { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; margin: 28px 0; color: var(--muted); }
+@media (max-width: 760px) { .personal-workspace { padding: 10px; margin: 20px auto; } .personal-grid { grid-template-columns: 1fr; } .personal-grid .panel { padding: 22px; } }
+
+.personal-use-cases { display: grid; gap: 12px; margin-top: 24px; }
+.personal-use-cases > span { display: grid; gap: 6px; padding: 14px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); font-size: 13px; }
+.personal-use-cases strong { color: var(--text); font-weight: 600; }
