@@ -1,1 +1,316 @@
 /* Styles for the Compare page. Use the shared tokens from web/styles.css. */
+.compare-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  container-type: inline-size;
+}
+
+/* Composer ------------------------------------------------------- */
+.compare-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.compare-composer textarea {
+  resize: vertical;
+  min-height: 96px;
+}
+.compare-models-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13.5px;
+}
+.compare-models-head .muted {
+  font-size: 13px;
+}
+.compare-models {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+.compare-model {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 12px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--text);
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    box-shadow 0.15s;
+}
+.compare-model strong {
+  font-size: 13.5px;
+  font-weight: 560;
+}
+.compare-model small {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.compare-model:hover:not(:disabled) {
+  background: var(--hover);
+}
+.compare-model.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+.compare-model:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.compare-composer-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.compare-hint {
+  flex: 1;
+  min-width: 180px;
+  font-size: 12.5px;
+}
+
+/* Price review --------------------------------------------------- */
+.compare-review {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--ink);
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: var(--shadow-pop);
+  animation: rise 0.28s var(--ease-out) both;
+}
+.compare-review ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.compare-review li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13.5px;
+}
+.compare-review li:last-child {
+  border-bottom: 0;
+}
+.compare-review li strong {
+  font-weight: 560;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.compare-review-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.compare-review-foot .muted {
+  flex: 1;
+  min-width: 200px;
+  font-size: 12.5px;
+}
+
+/* Results -------------------------------------------------------- */
+.compare-question {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.compare-question p {
+  margin: 4px 0 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.compare-question small {
+  font-size: 12.5px;
+}
+.compare-question-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.compare-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--green-bg);
+  border: 1px solid var(--green-line);
+  color: var(--green-ink);
+  font-size: 13.5px;
+}
+.compare-summary strong {
+  font-weight: 600;
+}
+.compare-columns {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+.compare-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+  animation: rise 0.28s var(--ease-out) both;
+}
+.compare-column.best {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 1px var(--accent) inset,
+    var(--shadow-card);
+}
+.compare-column > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.compare-column > header h2 {
+  flex: 1;
+  min-width: 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.compare-best-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 560;
+}
+.compare-best-tag svg {
+  fill: currentColor;
+}
+.compare-answer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  min-height: 120px;
+  overflow-wrap: anywhere;
+}
+.compare-waiting {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.compare-waiting .thinking {
+  padding: 0;
+}
+.compare-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+  margin: 0;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.compare-stats dt {
+  color: var(--muted);
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.compare-stats dd {
+  margin: 2px 0 0;
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.compare-stats dd small {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.compare-stats dd small.ok {
+  color: var(--green);
+}
+.compare-stats dd small.bad {
+  color: var(--red);
+}
+.compare-column > footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--line);
+}
+.compare-column > footer:empty {
+  display: none;
+}
+.compare-column > footer button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.compare-column > footer button:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+.compare-column > footer button.on {
+  color: var(--accent);
+}
+.compare-column > footer button.on svg {
+  fill: currentColor;
+}
+.compare-note {
+  font-size: 12.5px;
+  margin: 0;
+}
+
+/* Stack the columns when the page is narrow. */
+@container (max-width: 720px) {
+  .compare-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .compare-question {
+    flex-direction: column;
+  }
+  .compare-question-actions {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 640px) {
+  .compare-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

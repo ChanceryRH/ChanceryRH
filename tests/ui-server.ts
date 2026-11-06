@@ -30,6 +30,25 @@ runtime.provider.catalog = async () => [
     outputUsdPerMillion: "2",
     lanes: ["standard"],
   },
+  // Extra local-only models so Side by Side has something to compare.
+  {
+    id: "test-model-fast",
+    name: "Fixture Fast · test only",
+    contextLength: 32000,
+    maxTokens: 4096,
+    inputUsdPerMillion: "0.5",
+    outputUsdPerMillion: "1",
+    lanes: ["standard"],
+  },
+  {
+    id: "test-model-deep",
+    name: "Fixture Deep · test only",
+    contextLength: 200000,
+    maxTokens: 16384,
+    inputUsdPerMillion: "3",
+    outputUsdPerMillion: "6",
+    lanes: ["standard"],
+  },
 ];
 const { wallet } = simulateChain(
   runtime.chain,
