@@ -11,6 +11,16 @@ Give good ideas room to grow. Keep control of the details that matter.
 
 <br />
 
+**CHNC · Contract address**
+
+```text
+0xa05496e2100cc14920d969f918343f863eae209e
+```
+
+[Open Chancery](https://trychancery.com) &nbsp; · &nbsp; [View contract ↗](https://robinhoodchain.blockscout.com/address/0xa05496e2100cc14920d969f918343f863eae209e)
+
+<br />
+
 [The Office](#a-place-for-your-whole-team) &nbsp; · &nbsp; [The workflow](#from-idea-to-receipt) &nbsp; · &nbsp; [Security](#built-for-trust-down-to-the-details) &nbsp; · &nbsp; [More possibilities](#give-your-office-more-room)
 
 <br />

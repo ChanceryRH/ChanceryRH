@@ -57,3 +57,26 @@ $$('[data-details]').forEach(b=>b.addEventListener('click',()=>openDetail(b.data
 $$('dialog').forEach(d=>{$('.dialog-close',d).addEventListener('click',()=>d.close());d.addEventListener('click',e=>{if(e.target===d){const r=d.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)d.close();}});d.addEventListener('close',()=>{if(!$$('dialog[open]').length)document.body.style.overflow='';});});
 // The reference's quiet, continuous logo-strip motion, adapted to team types.
 const audience=$('.audience-types');const track=document.createElement('div');track.className='audience-track';const teamItems=[...audience.children];teamItems.forEach(e=>track.append(e));teamItems.forEach(e=>{const clone=e.cloneNode(true);clone.setAttribute('aria-hidden','true');clone.classList.add('marquee-copy');track.append(clone);});audience.append(track);motionObserver.observe(audience);
+
+// Copy the complete published contract address without shortening it.
+const contractCopy = $('[data-copy-contract]');
+contractCopy?.addEventListener('click', async () => {
+  const address = $('#contract-address').textContent.trim();
+  const status = $('.contract-copy-status');
+  try {
+    await navigator.clipboard.writeText(address);
+    $('[data-copy-label]', contractCopy).textContent = 'Copied';
+    status.textContent = 'Contract address copied.';
+    clearTimeout(contractCopy.resetTimer);
+    contractCopy.resetTimer = setTimeout(() => {
+      $('[data-copy-label]', contractCopy).textContent = 'Copy';
+      status.textContent = '';
+    }, 2500);
+  } catch {
+    const range = document.createRange();
+    range.selectNodeContents($('#contract-address'));
+    const selection = window.getSelection();
+    selection.removeAllRanges(); selection.addRange(range);
+    status.textContent = 'Address selected. Use your device’s Copy command.';
+  }
+});

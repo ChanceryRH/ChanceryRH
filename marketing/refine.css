@@ -547,3 +547,17 @@ footer .footer-columns h4 {
  .nav-actions .button.small { padding: 8px 10px; font-size: 12px; min-height: 38px; }
  .wordmark > span { display: none; }
 }
+
+/* Public contract identity, visible without opening a menu. */
+.contract-card { width: min(100%, 570px); margin-top: 22px; padding: 14px 16px; border: 1px solid rgba(238,240,255,.32); border-radius: 12px; background: rgba(18,19,31,.72); backdrop-filter: blur(18px); color: #f4f3ef; text-align: left; }
+.contract-heading { display: flex; gap: 8px; align-items: center; font: 10px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: #c8d6ef; margin-bottom: 9px; }
+.contract-dot { width: 5px; height: 5px; border-radius: 50%; background: #bfd4ff; box-shadow: 0 0 10px #bfd4ff66; }
+.contract-address-row { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+.contract-address-row code { min-width: 0; font: 12px/1.65 var(--f-mono); overflow-wrap: anywhere; user-select: all; }
+.contract-copy { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0; min-height: 36px; padding: 7px 10px; border: 1px solid #ffffff35; border-radius: 7px; background: #ffffff10; color: inherit; font: 12px var(--f-ui); cursor: pointer; }
+.contract-copy:hover { background: #ffffff24; }
+.contract-copy:focus-visible { outline: 2px solid #bfd4ff; outline-offset: 3px; }
+.contract-copy svg { width: 15px; height: 15px; }
+.contract-copy-status:empty { display: none; }
+.contract-copy-status { display: block; font-size: 12px; margin-top: 6px; }
+@media (max-width: 700px) { .contract-card { padding: 12px; margin-top: 16px; } .contract-address-row { gap: 8px; } .contract-address-row code { font-size: 11px; } }
