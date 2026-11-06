@@ -1,1 +1,324 @@
 /* Styles for the OfficeFiles page. Use the shared tokens from web/styles.css. */
+.office-files {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* Drop zone ---------------------------------------------------------- */
+.office-files .of-drop {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    box-shadow 0.2s;
+}
+.office-files .of-drop:hover,
+.office-files .of-drop:focus-visible,
+.office-files.dragging .of-drop {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  outline: 0;
+}
+.office-files.dragging .of-drop {
+  box-shadow: 0 0 0 4px var(--glow);
+}
+.office-files .of-drop strong {
+  display: block;
+  font-weight: 600;
+}
+.office-files .of-drop span:not(.of-drop-icon) {
+  color: var(--muted);
+  font-size: 13px;
+}
+.office-files .of-drop-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+/* File table --------------------------------------------------------- */
+.office-files .of-check {
+  width: 36px;
+  padding-right: 0;
+}
+.office-files .of-check input {
+  display: block;
+}
+.office-files .of-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  color: var(--text);
+  font-weight: 550;
+  text-align: left;
+}
+.office-files .of-name svg {
+  flex: none;
+  color: var(--muted);
+}
+.office-files .of-name span {
+  overflow-wrap: anywhere;
+}
+.office-files .of-name:hover span {
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.office-files .of-files td.end > * {
+  vertical-align: middle;
+}
+.office-files .of-row-action {
+  display: inline-grid;
+  margin-left: 6px;
+  width: 28px;
+  height: 28px;
+  color: var(--muted);
+}
+.office-files .of-row-action:hover {
+  color: var(--red);
+}
+
+/* Ask ---------------------------------------------------------------- */
+.office-files .of-ask {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.office-files .of-ask-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+.office-files .of-ask-head h2 {
+  font-size: 17px;
+}
+.office-files .of-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 13px;
+}
+.office-files .of-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 3px 6px 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+.office-files .of-chip svg {
+  flex: none;
+  color: var(--muted);
+}
+.office-files .of-chip button {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: var(--muted);
+}
+.office-files .of-chip button:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+.office-files .of-chip-link {
+  padding-right: 9px;
+  cursor: pointer;
+}
+.office-files .of-chip-link:hover {
+  border-color: var(--accent);
+  color: var(--link);
+}
+.office-files .of-ask .composer-controls {
+  flex-wrap: wrap;
+}
+.office-files .of-ask .composer-controls select {
+  min-height: 32px;
+  height: 32px;
+  padding: 0 8px;
+  font-size: 13px;
+  max-width: 220px;
+}
+
+/* Answer ------------------------------------------------------------- */
+.office-files .of-answer {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+  animation: rise 0.28s var(--ease-out) both;
+}
+.office-files .of-answer > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.office-files .of-answer > header h2 {
+  font-size: 17px;
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+.office-files .of-answer > footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-2);
+  font-size: 13px;
+}
+.office-files .of-answer code {
+  font-size: 12px;
+}
+.office-files .of-spacer {
+  flex: 1;
+}
+.office-files .of-cite {
+  display: inline;
+  padding: 0 4px;
+  margin: 0 1px;
+  border-radius: 5px;
+  background: var(--accent-soft);
+  color: var(--link);
+  font: inherit;
+  font-size: 0.92em;
+  font-weight: 550;
+  cursor: pointer;
+}
+.office-files .of-cite:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.office-files .of-sources {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+/* Preview modal ------------------------------------------------------ */
+.office-files .modal {
+  width: min(820px, calc(100vw - 32px));
+}
+.office-files .of-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.office-files .of-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.office-files .of-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.office-files .of-segment {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.office-files .of-segment button {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.office-files .of-segment button.active {
+  background: var(--card);
+  color: var(--text);
+  box-shadow: var(--shadow-xs);
+}
+.office-files .of-preview-body {
+  max-height: min(56vh, 560px);
+  overflow: auto;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--canvas);
+}
+.office-files .of-preview-body pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--f-mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text);
+}
+.office-files .of-preview-body .table th,
+.office-files .of-preview-body .table td {
+  padding: 6px 10px;
+  font-size: 12.5px;
+}
+.office-files .of-preview-note {
+  color: var(--muted);
+  font-size: 12.5px;
+  margin-top: 8px;
+}
+.office-files .of-rename {
+  padding-top: 0;
+}
+.office-files .of-rename .field {
+  margin-bottom: 8px;
+}
+.office-files .of-modal-actions {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .office-files .of-drop {
+    padding: 14px;
+  }
+  .office-files .of-ask .composer-controls select {
+    max-width: none;
+    flex: 1 1 140px;
+  }
+  .office-files .of-files th:nth-child(4),
+  .office-files .of-files td:nth-child(4),
+  .office-files .of-files th:nth-child(5),
+  .office-files .of-files td:nth-child(5) {
+    display: none;
+  }
+}

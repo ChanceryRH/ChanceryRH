@@ -80,13 +80,16 @@ One flow connects the work to its permissions, price, and proof.
 
 Chancery adds models in waves, so every model in the catalog has been checked against Office pricing, receipts and policy before your team can use it.
 
-**Wave 1 · Core** is live.
+**Wave 1 · Core** and **Wave 2 · Alternatives** are live.
 
-| Model | Model ID | Maker |
-| :--- | :--- | :--- |
-| **GPT-6.1 Sol** | `gpt-6.1-sol` | OpenAI |
-| **Claude Sonnet 5.5** | `claude-sonnet-5.5` | Anthropic |
-| **Gemini 3.8 Flash** | `gemini-3.8-flash` | Google |
+| Wave | Model | Model ID | Maker |
+| :--- | :--- | :--- | :--- |
+| 1 · Core | **GPT-6.1 Sol** | `gpt-6.1-sol` | OpenAI |
+| 1 · Core | **Claude Sonnet 5.5** | `claude-sonnet-5.5` | Anthropic |
+| 1 · Core | **Gemini 3.8 Flash** | `gemini-3.8-flash` | Google |
+| 2 · Alternatives | **DeepSeek V4.1 Flash** | `deepseek/deepseek-v4.1-flash` | DeepSeek |
+| 2 · Alternatives | **GLM-5.3** | `glm-5.3` | Z.ai |
+| 2 · Alternatives | **Kimi K3.1 Pro** | `moonshotai/kimi-k3.1-pro` | Moonshot AI |
 
 Each Office can narrow this list further with its own model allowlist in Settings.
 
