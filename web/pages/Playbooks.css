@@ -1,1 +1,133 @@
 /* Styles for the Playbooks page. Use the shared tokens from web/styles.css. */
+.playbooks-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.playbooks-page .starter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+.playbooks-page .starter-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.playbooks-page .starter-card > span:not(.starter-icon) {
+  color: var(--muted);
+  font-size: 13px;
+  flex: 1;
+}
+.playbooks-page .starter-card .button {
+  align-self: flex-start;
+  margin-top: 6px;
+}
+.playbooks-page .starter-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--link);
+  margin-bottom: 2px;
+}
+.playbooks-page .playbook-run textarea {
+  resize: vertical;
+  min-height: 96px;
+}
+.playbooks-page .run-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+}
+.playbooks-page .run-bar .muted,
+.playbooks-page .run-note {
+  font-size: 13px;
+}
+.playbooks-page .run-note {
+  margin-top: 10px;
+}
+.playbooks-page .guard-message {
+  margin-bottom: 12px;
+}
+.playbooks-page .playbook-result {
+  border-color: var(--line-strong);
+}
+.playbooks-page .playbook-output {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  max-height: 520px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+.playbooks-page .result-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 14px 0 12px;
+}
+.playbooks-page .result-foot .receipt-chip code {
+  color: var(--text);
+}
+.playbooks-page .result-foot .icon-button {
+  width: 26px;
+  height: 26px;
+}
+.playbooks-page .playbook-template pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--f-ui);
+  font-size: 13px;
+}
+.playbook-editor .field-list {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 14px 4px;
+  margin: 0 0 14px;
+  background: var(--surface);
+}
+.playbook-editor .field-list legend {
+  font-size: 13px;
+  font-weight: 550;
+  padding: 0 4px;
+}
+.playbook-editor .field-row {
+  display: grid;
+  grid-template-columns: minmax(90px, auto) 1fr auto;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.playbook-editor .field-row code {
+  font-size: 12px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.playbook-editor .price-row {
+  display: flex;
+  gap: 8px;
+}
+.playbook-editor .price-row input {
+  flex: 1;
+  min-width: 0;
+}
+.playbook-editor .error-text {
+  margin: -6px 0 12px;
+}
+@media (max-width: 640px) {
+  .playbook-editor .field-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}
